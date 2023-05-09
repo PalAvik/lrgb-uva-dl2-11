@@ -19,11 +19,16 @@ from torch_geometric.graphgym.utils.agg_runs import agg_runs
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric.graphgym.utils.device import auto_select_device
 from torch_geometric.graphgym.register import train_dict
+from torch_geometric.graphgym.register import register_config
 from torch_geometric import seed_everything
 
 from graphgps.finetuning import load_pretrained_model_cfg, \
     init_model_from_pretrained
 from graphgps.logger import create_logger
+
+
+def set_sdrf_cfg(cfg):
+    cfg.dataset.sdrf_loops = 0
 
 
 def new_optimizer_config(cfg):
@@ -108,6 +113,7 @@ if __name__ == '__main__':
     # Load cmd line args
     args = parse_args()
     # Load config file
+    register_config(5, set_sdrf_cfg)
     set_cfg(cfg)
     load_cfg(cfg, args)
     custom_set_out_dir(cfg, args.cfg_file, cfg.name_tag)

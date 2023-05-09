@@ -17,6 +17,7 @@ from torch_geometric.graphgym.register import register_loader
 from graphgps.loader.dataset.coco_superpixels import COCOSuperpixels
 from graphgps.loader.dataset.malnet_tiny import MalNetTiny
 from graphgps.loader.dataset.voc_superpixels import VOCSuperpixels
+from graphgps.loader.dataset.voc_superpixels_rewired import VOCSuperpixelsRewired
 from graphgps.loader.split_generator import (prepare_splits,
                                              set_dataset_splits)
 from graphgps.transform.posenc_stats import compute_posenc_stats
@@ -113,6 +114,11 @@ def load_dataset_master(format, name, dataset_dir):
         elif pyg_dataset_id == 'VOCSuperpixels':
             dataset = preformat_VOCSuperpixels(dataset_dir, name,
                                                cfg.dataset.slic_compactness)
+        
+        elif pyg_dataset_id == 'VOCSuperpixelsRewired':
+            dataset = preformat_VOCSuperpixelsRewired(dataset_dir, name,
+                                                      cfg.dataset.sdrf_loops,
+                                                      cfg.dataset.slic_compactness)
 
         elif pyg_dataset_id == 'COCOSuperpixels':
             dataset = preformat_COCOSuperpixels(dataset_dir, name,
@@ -527,6 +533,24 @@ def preformat_VOCSuperpixels(dataset_dir, name, slic_compactness):
         [VOCSuperpixels(root=dataset_dir, name=name,
                         slic_compactness=slic_compactness,
                         split=split)
+         for split in ['train', 'val', 'test']]
+    )
+    return dataset
+
+
+def preformat_VOCSuperpixelsRewired(dataset_dir, name, sdrf_loops, slic_compactness):
+    """Load and preformat VOCSuperpixels dataset.
+
+    Args:
+        dataset_dir: path where to store the cached dataset
+    Returns:
+        PyG dataset object
+    """
+    dataset = join_dataset_splits(
+        [VOCSuperpixelsRewired(root=dataset_dir, name=name,
+                               sdrf_loops=sdrf_loops,
+                               slic_compactness=slic_compactness,
+                               split=split)
          for split in ['train', 'val', 'test']]
     )
     return dataset
