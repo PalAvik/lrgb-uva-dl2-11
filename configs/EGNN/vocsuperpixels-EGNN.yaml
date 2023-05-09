@@ -1,0 +1,40 @@
+out_dir: results
+metric_best: f1
+wandb:
+  use: True
+  project: Pascal
+dataset:
+  format: PyG-VOCSuperpixels
+  name: edge_wt_only_coord  # Alternative: edge_wt_region_boundary
+  slic_compactness: 10
+  task: graph  # Even if VOC is node-level task, this needs to be set as 'graph'
+  task_type: classification
+  transductive: False
+  node_encoder: True
+  node_encoder_name: VOCNode
+  node_encoder_bn: False
+  edge_encoder: True
+  edge_encoder_name: VOCEdge
+  edge_encoder_bn: False
+train:
+  mode: custom
+  batch_size: 32   
+  eval_period: 1
+  ckpt_period: 100
+model:
+  type: egnn
+  loss_fun: weighted_cross_entropy
+optim:
+  optimizer: adamW
+  weight_decay: 0.0                   
+  base_lr: 0.0005
+  max_epoch: 1000
+  scheduler: cos
+  reduce_factor: 0.5
+  schedule_patience: 10
+  min_lr: 1e-5
+  steps: [10, 25, 40]
+gnn:
+  head: inductive_node
+  layers_post_mp: 3
+
