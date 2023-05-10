@@ -76,7 +76,6 @@ if __name__ == '__main__':
         loggers = create_logger()
         model = create_model()
 
-
         print("Model loaded - stage 1!")
         if cfg.train.finetune: 
             model = init_model_from_pretrained(model, cfg.train.finetune,
