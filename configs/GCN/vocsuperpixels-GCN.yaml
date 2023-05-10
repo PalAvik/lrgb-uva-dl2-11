@@ -1,4 +1,5 @@
 out_dir: results
+device: cpu
 metric_best: f1
 wandb:
   use: True
