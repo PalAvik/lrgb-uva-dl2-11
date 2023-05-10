@@ -16,12 +16,12 @@ import os
 import torch
 import logging
 
-import graphgps  # noqa, register custom modules
+# import graphgps  # noqa, register custom modules
 
 from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric.graphgym.config import (cfg, dump_cfg,
-                                             set_agg_dir, set_cfg, load_cfg,
-                                             makedirs_rm_exist)
+                                             set_cfg, load_cfg,
+                                             )
 from torch_geometric.graphgym.loader import create_loader
 from torch_geometric.graphgym.logger import set_printing
 from torch_geometric.graphgym.optimizer import create_optimizer, \
@@ -51,13 +51,18 @@ def custom_set_out_dir(cfg, cfg_fname, name_tag):
         name_tag (string): Additional name tag to identify this execution of the
             configuration file, specified in :obj:`cfg.name_tag`
     """
+
     run_name = os.path.splitext(os.path.basename(cfg_fname))[0]
     run_name += f"-{name_tag}" if name_tag else ""
     cfg.out_dir = os.path.join(cfg.out_dir, run_name)
 
 if __name__ == '__main__':
+    print("Now running!")
+
     # Load cmd line args
     args = parse_args()
+    print(args)
+    assert False
     # Load config file
     set_cfg(cfg)
     load_cfg(cfg, args)
@@ -71,10 +76,20 @@ if __name__ == '__main__':
         loaders = create_loader()
         loggers = create_logger()
         model = create_model()
+
+
+        print("Model loaded - stage 1!")
         if cfg.train.finetune: 
             model = init_model_from_pretrained(model, cfg.train.finetune,
                                                cfg.train.freeze_pretrained)
-            for batch in loaders[0]:
-                batch.split = "test"
-                pred, true = model(batch)
+
+            print('Model loaded - stage 2!')
+            print(model)
+
+            # for batch in loaders[0]:
+            #     batch.split = "test"
+            #     pred, true = model(batch)
+            #
+            #     print(pred.shape)
+            #     print(true.shape)
        
