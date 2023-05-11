@@ -3,9 +3,33 @@ import math
 import torch.optim as optim
 from torch.optim import Optimizer
 from torch_geometric.graphgym import cfg
-from torch_geometric.graphgym.optimizer import OptimizerConfig, SchedulerConfig
+# from torch_geometric.graphgym.optimizer import OptimizerConfig, SchedulerConfig
 from torch_geometric.graphgym.register import (register_optimizer,
                                                register_scheduler)
+
+from dataclasses import dataclass, field
+
+@dataclass
+class OptimizerConfig:
+    # optimizer: sgd, adam
+    optimizer: str = 'adam'
+    # Base learning rate
+    base_lr: float = 0.01
+    # L2 regularization
+    weight_decay: float = 5e-4
+    # SGD momentum
+    momentum: float = 0.9
+
+@dataclass
+class SchedulerConfig:
+    # scheduler: none, steps, cos
+    scheduler: str = 'cos'
+    # Steps for 'steps' policy (in epochs)
+    steps: list = field(default_factory=[30, 60, 90])
+    # Learning rate multiplier for 'steps' policy
+    lr_decay: float = 0.1
+    # Maximal number of epochs
+    max_epoch: int = 200
 
 
 def optimizer_adagrad(params, optimizer_config: OptimizerConfig):
