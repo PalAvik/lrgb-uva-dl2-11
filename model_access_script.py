@@ -3,7 +3,7 @@
 2. In the config's yaml file you'll have to add a finetune parameter which points to the result 
    folder of Pascal's GCN. (I'll send you the ss of how it should look like)
 3. Call that yaml file when you run the script like this: 
-python model_inference.py --cfg configs/GCN/vocsuperpixels-GCN.yaml device cpu
+python model_access_script.py --cfg configs/GCN/vocsuperpixels-GCN.yaml device cpu
 4. Note that the predictions sent by model are not softmaxed and may look like this: 
  (N X C) which is no of graphs by no of classes. 
 5. The softmax is taken inside the loss function. (let me know if you need more dets regarding this
@@ -80,7 +80,7 @@ if __name__ == '__main__':
         if cfg.train.finetune: 
             model = init_model_from_pretrained(model, cfg.train.finetune,
                                                cfg.train.freeze_pretrained)
-            
+
             torch.save(model, 'entire_models/pascal_gcn.pkl')
 
             print('Model loaded - stage 2!')

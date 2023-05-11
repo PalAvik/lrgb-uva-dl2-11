@@ -1,4 +1,6 @@
 # CUSTOM
+entire_models
+saved_loaders
 .vscode/
 scripts/pcqm4m/**/*.zip
 scripts/pcqm4m/**/*.sdf
