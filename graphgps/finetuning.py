@@ -126,7 +126,7 @@ def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False, d
     # Overwrite entries in the existing state dict.
     model_dict.update(pretrained_dict)
     # Load the new state dict.
-    model.load_state_dict(model_dict)
+    model.load_state_dict(model_dict, strict=True)
 
     if freeze_pretrained:
         for key, param in model.named_parameters():

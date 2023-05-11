@@ -80,14 +80,19 @@ if __name__ == '__main__':
         if cfg.train.finetune: 
             model = init_model_from_pretrained(model, cfg.train.finetune,
                                                cfg.train.freeze_pretrained)
+            
+            torch.save(model, 'entire_models/pascal_gcn.pkl')
 
             print('Model loaded - stage 2!')
             print(model)
+            assert False
 
-            # for batch in loaders[0]:
+
+            # for i, l in enumerate(loaders):
+            #     torch.save(l.dataset, f'saved_loaders/pascal/loader_{i}.pkl')
+
+            # for i, batch in enumerate(loaders[0]):
             #     batch.split = "test"
             #     pred, true = model(batch)
             #
-            #     print(pred.shape)
-            #     print(true.shape)
-       
+            #     print(i, pred.shape, true.shape, batch.batch.shape)
