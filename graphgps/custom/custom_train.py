@@ -27,12 +27,9 @@ def train_epoch(logger, loader, model, optimizer, scheduler):
         edge_attr = batch["edge_attr"].to(torch.device(cfg.device))
         n_nodes = batch["x"].size(0)
         n_edges = edges.size(1)
-        atom_mask = torch.ones(n_nodes,1).to(torch.device(cfg.device))
-        edge_mask = torch.ones(n_edges,1).to(torch.device(cfg.device))
-        
+  
         true = batch["y"]
-        pred = model(h0=nodes, x=positions, edges=edges, edge_attr=edge_attr, node_mask=atom_mask, edge_mask=edge_mask,
-                     n_nodes=n_nodes)
+        pred = model(h0=nodes, x=positions, edges=edges, edge_attr=edge_attr)
         loss, pred_score = compute_loss(pred, true)
         loss.backward()
         optimizer.step()
@@ -59,12 +56,9 @@ def eval_epoch(logger, loader, model, split='val'):
         edge_attr = batch["edge_attr"].to(torch.device(cfg.device))
         n_nodes = batch["x"].size(0)
         n_edges = edges.size(1)
-        atom_mask = torch.ones(n_nodes,1).to(torch.device(cfg.device))
-        edge_mask = torch.ones(n_edges,1).to(torch.device(cfg.device))
 
         true = batch["y"]
-        pred = model(h0=nodes, x=positions, edges=edges, edge_attr=edge_attr, node_mask=atom_mask, edge_mask=edge_mask,
-                     n_nodes=n_nodes)
+        pred = model(h0=nodes, x=positions, edges=edges, edge_attr=edge_attr)
         loss, pred_score = compute_loss(pred, true)
         logger.update_stats(true=true.detach().cpu(),
                             pred=pred_score.detach().cpu(), loss=loss.item(),
