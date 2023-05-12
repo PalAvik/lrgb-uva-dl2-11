@@ -42,40 +42,6 @@ import pickle
 # model = torch.load("/home/lcur1702/lrgb_madhura/lrgb-uva-dl2-11/results/vocsuperpixels-EGNN/0/ckpt/999.ckpt",
 #         map_location=torch.device('cpu'))
 # print(model)
-def zero_gradients(x):
-    if isinstance(x, torch.Tensor):
-        if x.grad is not None:
-            x.grad.detach_()
-            x.grad.zero_()
-    elif isinstance(x, collections.abc.Iterable):
-        for elem in x:
-            zero_gradients(elem)
-
-
-def compute_jacobian(inputs, output):
-	"""
-	:param inputs: Batch X Size (e.g. Depth X Width X Height)
-	:param output: Batch X Classes
-	:return: jacobian: Batch X Classes X Size
-	"""
-	assert inputs.requires_grad
-
-	num_classes = output.size()[1]
-
-	jacobian = torch.zeros(num_classes, *inputs.size())
-	grad_output = torch.zeros(*output.size())
-	if inputs.is_cuda:
-		grad_output = grad_output.cuda()
-		jacobian = jacobian.cuda()
-
-	for i in range(num_classes):
-		zero_gradients(inputs)
-		grad_output.zero_()
-		grad_output[:, i] = 1
-		output.backward(grad_output, retain_graph=True)
-		jacobian[i] = inputs.grad.data
-
-	return torch.transpose(jacobian, dim0=0, dim1=1)
 
 
 def custom_set_out_dir(cfg, cfg_fname, name_tag):
