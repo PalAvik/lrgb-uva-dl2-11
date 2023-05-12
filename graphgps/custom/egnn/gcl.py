@@ -1,5 +1,6 @@
 from torch import nn
 import torch
+import numpy as np
 
 class MLP(nn.Module):
     """ a simple 4-layer MLP """
@@ -159,7 +160,9 @@ class E_GCL(nn.Module):
         self.attention = attention
         self.norm_diff = norm_diff
         self.tanh = tanh
-        edge_coords_nf = 1
+        # edge_coords_nf = 1
+        edge_coords_nf = 2
+        
 
 
         self.edge_mlp = nn.Sequential(
@@ -211,7 +214,8 @@ class E_GCL(nn.Module):
         return out
 
     def node_model(self, x, edge_index, edge_attr, node_attr):
-        row, col = edge_index
+        row, col = edge_index.to(torch.int64)
+        # row, col = edge_index
         agg = unsorted_segment_sum(edge_attr, row, num_segments=x.size(0))
         if node_attr is not None:
             agg = torch.cat([x, agg, node_attr], dim=1)
@@ -233,7 +237,8 @@ class E_GCL(nn.Module):
 
     def coord2radial(self, edge_index, coord):
         row, col = edge_index
-        coord_diff = coord[row] - coord[col]
+        # coord_diff = coord[row] - coord[col] 
+        coord_diff = coord[row.long()] - coord[col.long()]
         radial = torch.sum((coord_diff)**2, 1).unsqueeze(1)
 
         if self.norm_diff:
