@@ -108,24 +108,7 @@ if __name__ == '__main__':
         loaders = create_loader()
         loggers = create_logger()
         model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=7, coords_weight=1.0,device=cfg.device)
-        if False:
-            file = open('jac.pkl', 'rb')
-            jacobian = pickle.load(file)
-            print(len(jacobian))
-            file.close()
-            
-            node_jacobian = jacobian[0]
-            total_nodes = node_jacobian.size(0)
-            x = 0
-            for y in range(x-20, x+20):
-                h_x_y = node_jacobian[y,:,x,:].mean()
-                h_x_all = node_jacobian[:,:,x,:].mean()
 
-                I_x_y = h_x_y / h_x_all
-                    
-                print("Influence y on x: ", I_x_y)
-
-        
         
         if cfg.train.finetune: 
             model = init_model_from_pretrained(model, cfg.train.finetune,
