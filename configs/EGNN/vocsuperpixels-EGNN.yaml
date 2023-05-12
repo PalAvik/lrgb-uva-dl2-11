@@ -17,6 +17,7 @@ dataset:
   edge_encoder_name: VOCEdge
   edge_encoder_bn: False
 train:
+  finetune: C:\Users\niksm\Documents\CodeForUni\lrgb-uva-dl2-11\results\vocsuperpixels-EGNN
   mode: custom
   batch_size: 32   
   eval_period: 1

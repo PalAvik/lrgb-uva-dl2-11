@@ -59,6 +59,7 @@ def custom_set_out_dir(cfg, cfg_fname, name_tag):
     cfg.out_dir = os.path.join(cfg.out_dir, run_name)
 
 if __name__ == '__main__':
+    print('Beginning script!')
     # Load cmd line args
     args = parse_args()
     # Load config file
