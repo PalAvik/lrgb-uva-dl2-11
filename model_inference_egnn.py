@@ -77,9 +77,12 @@ if __name__ == '__main__':
         model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=7, coords_weight=1.0,device=cfg.device)
 
         
-        if cfg.train.finetune: 
-            model = init_model_from_pretrained(model, cfg.train.finetune,
-                                               cfg.train.freeze_pretrained)
+        if cfg.train.finetune:
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            model = init_model_from_pretrained(model,
+                                               cfg.train.finetune,
+                                               cfg.train.freeze_pretrained,
+                                               device=device)
             # print(model)
               
             for batch in loaders[0]:
