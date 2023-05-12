@@ -31,7 +31,8 @@ for target in range(total_nodes):
 
 
 fig, ax = plt.subplots()
-ax.scatter(euclidean_distance,influence_scores)
+ax.scatter(euclidean_distance,
+           influence_scores)
 ax.set_xlabel('dist')
 ax.set_ylabel('inf score')
 # ax.legend()
