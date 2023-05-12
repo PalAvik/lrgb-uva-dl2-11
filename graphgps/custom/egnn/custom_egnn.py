@@ -25,22 +25,15 @@ class E_GCL_mask(E_GCL):
 
     def coord_model(self, coord, edge_index, coord_diff, edge_feat, edge_mask):
         row, col = edge_index
-        trans = coord_diff * self.coord_mlp(edge_feat) * edge_mask
+        trans = coord_diff * self.coord_mlp(edge_feat) 
         agg = unsorted_segment_sum(trans, row, num_segments=coord.size(0))
         coord = coord + agg*self.coords_weight
         return coord
 
-    def forward(self, h, edge_index, coord, node_mask, edge_mask, edge_attr=None, node_attr=None, n_nodes=None):
+    def forward(self, h, edge_index, coord, edge_attr=None, node_attr=None):
         row, col = edge_index # edge index shape = 2 X E
-        radial, coord_diff = self.coord2radial(edge_index, coord) # E X 1 , E X 2
-        
-        edge_feat = self.edge_model(h[row], h[col], radial, edge_attr)
-
-        # edge_feat = edge_feat * edge_mask
-
-        # TO DO: edge_feat = edge_feat * edge_mask
-
-        coord = self.coord_model(coord, edge_index, coord_diff, edge_feat, edge_mask)
+        radial, coord_diff = self.coord2radial(edge_index, coord) # E X 1 , E X 2     
+        edge_feat = self.edge_model(h[row.long()], h[col.long()], radial, edge_attr)
         h, agg = self.node_model(h, edge_index, edge_feat, node_attr)
 
         return h, coord, edge_attr
@@ -66,27 +59,44 @@ class EGNN(torch.nn.Module):
                                       act_fn,
                                       nn.Linear(self.hidden_nf, self.hidden_nf))
         
+        # For concatentation 
+        # self.node_dec = nn.Sequential(nn.Linear(self.hidden_nf*n_layers, self.hidden_nf), 
+        #                               act_fn,
+        #                               nn.Linear(self.hidden_nf, self.hidden_nf))
+        
         self.graph_dec = nn.Sequential(nn.Linear(self.hidden_nf, self.hidden_nf),
                                        act_fn,
                                        nn.Linear(self.hidden_nf, 21))
+        
+        # For concatenation
+        # self.graph_dec = nn.Sequential(nn.Linear(self.hidden_nf*n_layers, self.hidden_nf),
+        #                                act_fn,
+        #                                nn.Linear(self.hidden_nf, 21))
         
         self.to(self.device)
 
   
       
-    def forward(self, h0, x, edges, edge_attr, node_mask, edge_mask, n_nodes):
+    def forward(self, h0, x, edges, edge_attr):
         h = self.embedding(h0)
-        # print("shape of h after embedding: ", h.size())
+        layer_outputs = []
         for i in range(0, self.n_layers):
             if self.node_attr:
-                h, x, _ = self._modules["gcl_%d" % i](h, edges, x, node_mask, edge_mask, edge_attr=edge_attr, node_attr=h0, n_nodes=n_nodes)
-                # print("shape of h after gcl mask: ", h.size())
+                h, _, _ = self._modules["gcl_%d" % i](h, edges, x, edge_attr=edge_attr, node_attr=h0)
+                layer_outputs.append(h)
             else:
-                h, x , _ = self._modules["gcl_%d" % i](h, edges, x, node_mask, edge_mask, edge_attr=edge_attr,
-                                                      node_attr=None, n_nodes=n_nodes)
-   
+                h, _, _ = self._modules["gcl_%d" % i](h, edges, x, edge_attr=edge_attr, node_attr=None)
+        
+        # for addition
+        # if self.node_attr:  
+        #   h = torch.cat(layer_outputs, dim=1)
+
         h = self.node_dec(h)
-        # h = h * node_mask
+
+        # for maximum
+        # h1 = torch.stack(layer_outputs, dim=0)
+        # h = torch.max(h1, dim=0)[0]
+
         pred = self.graph_dec(h)
         return pred
 
