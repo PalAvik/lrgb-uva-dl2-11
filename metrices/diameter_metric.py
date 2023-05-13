@@ -7,7 +7,7 @@ import networkx as nx
 import torch_geometric
 
 
-class AvgDiameterMetric:
+class DiameterMetric:
     def get_graph_value(self, graph, normalization="sym", is_undirected=True):
         # Compute the metric for a single graph
         # :param graph: torch_geometric.data.Data object

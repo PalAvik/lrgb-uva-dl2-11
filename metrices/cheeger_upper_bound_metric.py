@@ -5,7 +5,7 @@ from torch_geometric.utils import get_laplacian, to_scipy_sparse_matrix
 from scipy.sparse.linalg import eigs, eigsh
 
 
-class CheegerMetric:
+class UpperCheegerMetric:
     def _compute_lambda_1(self, graph, normalization="sym", is_undirected=True):
         # Compute the smallest non-zero eigenvalue of the normalized Laplacian matrix
         # :param graph: torch_geometric.data.Data object
