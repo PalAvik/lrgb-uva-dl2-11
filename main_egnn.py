@@ -24,8 +24,6 @@ from torch_geometric import seed_everything
 from graphgps.finetuning import load_pretrained_model_cfg, \
     init_model_from_pretrained
 from graphgps.logger import create_logger
-
-from graphgps.custom import custom_train
 from graphgps.custom.egnn import custom_egnn
 
 
@@ -119,47 +117,51 @@ if __name__ == '__main__':
     torch.set_num_threads(cfg.num_threads)
     # Repeat for multiple experiment runs
     for run_id, seed, split_index in zip(*run_loop_settings()):
-         # Set configurations for each run
-         custom_set_run_dir(cfg, run_id)
-         set_printing()
-         cfg.dataset.split_index = split_index
-         cfg.seed = seed
-         cfg.run_id = run_id
-         seed_everything(cfg.seed)
-         auto_select_device()
-    #     if cfg.train.finetune: [TODO LATER]
-    #         cfg = load_pretrained_model_cfg(cfg)
-         logging.info(f"[*] Run ID {run_id}: seed={cfg.seed}, "
-                      f"split_index={cfg.dataset.split_index}")
-         logging.info(f"    Starting now: {datetime.datetime.now()}")
-        # Set machine learning pipeline
-         loaders = create_loader()
-         loggers = create_logger()
-         # model = create_model()
-         model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=7, coords_weight=1.0,device=cfg.device)
-        # if cfg.train.finetune:  [TODO]
-        #     model = init_model_from_pretrained(model, cfg.train.finetune,
-        #                                        cfg.train.freeze_pretrained)
-         optimizer = create_optimizer(model.parameters(), new_optimizer_config(cfg))
-         scheduler = create_scheduler(optimizer, new_scheduler_config(cfg))
+        # Set configurations for each run
+        custom_set_run_dir(cfg, run_id)
+        set_printing()
+        cfg.dataset.split_index = split_index
+        cfg.seed = seed
+        cfg.run_id = run_id
+        seed_everything(cfg.seed)
+        auto_select_device()
+        #     if cfg.train.finetune: [TODO LATER]
+        #         cfg = load_pretrained_model_cfg(cfg)
+        logging.info(f"[*] Run ID {run_id}: seed={cfg.seed}, "
+                  f"split_index={cfg.dataset.split_index}")
+        logging.info(f"    Starting now: {datetime.datetime.now()}")
+        
+        loaders = create_loader()
+        loggers = create_logger()
+         
+        if cfg.model.type == 'egnn2':
+            model = custom_egnn.EGNN2(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,device=cfg.device)
+            from graphgps.custom import custom_train2 as custom_train
+        elif cfg.model.type == 'egnn':
+            model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=7, coords_weight=1.0,device=cfg.device)
+            from graphgps.custom import custom_train
+            
+        optimizer = create_optimizer(model.parameters(), new_optimizer_config(cfg))
+        scheduler = create_scheduler(optimizer, new_scheduler_config(cfg))
+        
         # Print model info
-         logging.info(model)
-         logging.info(cfg)
-         cfg.params = params_count(model)
-         logging.info('Num parameters: {}'.format(cfg.params))
+        logging.info(model)
+        logging.info(cfg)
+        cfg.params = params_count(model)
+        logging.info('Num parameters: {}'.format(cfg.params))
+        
         # Start training
-         if cfg.train.mode == 'standard':
+        if cfg.train.mode == 'standard':
             print("std mode")
-            if cfg.wandb.use:
-                logging.warning("[W] WandB logging is not supported with the "
-                                "default train.mode, set it to `custom`")
-            custom_train.train(loggers, loaders, model, optimizer, scheduler)
-    #         train(loggers, loaders, model, optimizer, scheduler)
-         else:
+        if cfg.wandb.use:
+            logging.warning("[W] WandB logging is not supported with the "
+                            "default train.mode, set it to `custom`")
+        custom_train.train(loggers, loaders, model, optimizer, scheduler)
+        #         train(loggers, loaders, model, optimizer, scheduler)
+        else:
             print("coming here",cfg.train.mode)
             custom_train.train(loggers, loaders, model, optimizer, scheduler)
-    #         train_dict[cfg.train.mode](loggers, loaders, model, optimizer,
-    #                                    scheduler)
+
     # Aggregate results from different seeds
     agg_runs(cfg.out_dir, cfg.metric_best)
     # When being launched in batch mode, mark a yaml as done
