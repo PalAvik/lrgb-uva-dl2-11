@@ -147,7 +147,7 @@ def _grad_postprocess(inputs, create_graph):
         return tuple(_grad_postprocess(inp, create_graph) for inp in inputs)
 
 
-def jacobian_graph(func, inputs, create_graph=False, strict=False, is_graphgym=False):
+def jacobian_graph(func, inputs, create_graph=False, strict=False, is_graphgym=False, uses_pe=False):
     r"""Function that computes the Jacobian of a given function.
 
     Args:
@@ -183,12 +183,22 @@ def jacobian_graph(func, inputs, create_graph=False, strict=False, is_graphgym=F
         inputs = _grad_preprocess(inputs, create_graph=create_graph, need_graph=True)
 
         if is_graphgym:
-            input_gdata = Data(
-                    x=inputs[0],
-                    edge_index=inputs[1].int(),
-                    edge_attr=inputs[2],
-                )
-            outputs = (func(input_gdata)[0])
+            if uses_pe:
+                input_gdata = Data(
+                        x=inputs[0],
+                        edge_index=inputs[1].int(),
+                        edge_attr=inputs[2],
+                        EigVals=inputs[3],
+                        EigVecs=inputs[4],
+                    )
+                outputs = (func(input_gdata)[0])
+            else:
+                input_gdata = Data(
+                        x=inputs[0],
+                        edge_index=inputs[1].int(),
+                        edge_attr=inputs[2],
+                    )
+                outputs = (func(input_gdata)[0])
         else:
             outputs = func(*inputs)
         

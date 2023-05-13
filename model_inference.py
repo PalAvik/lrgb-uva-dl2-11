@@ -39,6 +39,7 @@ from graphgps.finetuning import load_pretrained_model_cfg, \
 from graphgps.logger import create_logger
 from graphgps.custom.egnn import custom_egnn
 from graphgps.jacobian.utils import jacobian_graph
+from graphgps.transform.posenc_stats import compute_posenc_stats
 import pickle
 from tqdm import tqdm
 
@@ -113,6 +114,7 @@ if __name__ == '__main__':
         
         no_batches = 2
         data_path_dir = './datasets/VOCSuperpixels/small_test_set'
+        uses_pe = False
         
         for b_idx in tqdm(range(no_batches)):
             data_path = os.path.join(data_path_dir, f'batch_{b_idx}.pt')
@@ -121,6 +123,10 @@ if __name__ == '__main__':
             for g_idx in tqdm(range(graph_batch.num_graphs)):
         
                 graph = graph_batch[g_idx]
+                
+                if cfg.posenc_LapPE.enable == True:
+                    graph = compute_posenc_stats(graph, ['LapPE'], is_undirected=True, cfg=cfg)
+                    uses_pe = True
 
                 if cfg.model.type == 'egnn':
                     nodes = graph.x[:,:12].to(torch.device(cfg.device))
@@ -139,21 +145,22 @@ if __name__ == '__main__':
 
                 if cfg.model.type == 'egnn':
                     input_ = (nodes, positions, edges, edge_attr)
+                elif cfg.model.type == 'GPSModel':
+                    EigVals = graph.EigVals.to(torch.device(cfg.device))
+                    EigVecs = graph.EigVecs.to(torch.device(cfg.device))
+                    input_ = (nodes, edges, edge_attr, EigVals, EigVecs)
                 else:
                     input_ = (nodes, edges, edge_attr)
 
 #                 print("~~~~~~~~~Computing Jacobian~~~~~~~~~~~~")
 
-                node_jacobian = jacobian_graph(model, input_, is_graphgym=is_graphgym)[0]
+                node_jacobian = jacobian_graph(model, input_, is_graphgym=is_graphgym, uses_pe=uses_pe)[0]
                 influence_score, distances = get_influence_score(node_jacobian, positions, node_jacobian.size(0))
-                influence_score = influence_score.cpu().detach().numpy()
-                distances = distances.cpu().detach().numpy()
 
                 dict_ = {
-                    "influence_score" : influence_score, 
-                    "distances" : distances, 
-                    "edges" : edges
-
+                    "influence_score" : influence_score.cpu().detach().numpy(), 
+                    "xpos" : positions.cpu().detach().numpy(), 
+                    "edges" : edges.cpu().detach().numpy(),
                 }
                 entries.append(dict_)
 
