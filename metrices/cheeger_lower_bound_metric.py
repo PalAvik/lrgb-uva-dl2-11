@@ -57,11 +57,11 @@ class CheegerMetric:
         # :param is_undirected: whether the graph is undirected
         # :return: a list of cheeger scores
         # Compute the metric for each graph in the batch
-        upper_values = []
+        lower_values = []
         for i in range(graphs.num_graphs):
             graph = graphs[i]
             lower_value = self.get_graph_values(
                 graph, normalization=normalization, is_undirected=is_undirected
             )
             lower_values.append(lower_value)
-        return upper_values, lower_values
+        return lower_values
