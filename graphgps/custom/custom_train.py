@@ -1,16 +1,41 @@
+import numpy as np
 import torch
 import time
 import logging
 import numpy as np
+import os
+import glob
+import os.path as osp
+from typing import  List, Union
 from torch_geometric.graphgym.config import cfg
 from torch_geometric.graphgym.loss import compute_loss
 from torch_geometric.graphgym.utils.epoch import is_eval_epoch, is_ckpt_epoch
 from torch_geometric.graphgym.checkpoint import load_ckpt, save_ckpt, \
     clean_ckpt
 
+from torch_geometric.graphgym.register import register_train
+
+from graphgps.loss.subtoken_prediction_loss import subtoken_cross_entropy
 from graphgps.utils import cfg_to_dict, flatten_dict, make_wandb_name
 dtype = torch.float32
 
+def get_ckpt_epochs() -> List[int]:
+    paths = glob.glob(get_ckpt_path('*'))
+    return sorted([int(osp.basename(path).split('.')[0]) for path in paths])
+
+
+def get_ckpt_path(epoch: Union[int, str]) -> str:
+    return osp.join(get_ckpt_dir(), f'{epoch}.ckpt')
+
+def get_ckpt_dir() -> str:
+    return osp.join(cfg.run_dir, 'ckpt')
+
+def clean_ckpt(best_epoch):
+    r"""Removes all but the last model checkpoint."""
+    for epoch in get_ckpt_epochs()[:-1]:
+        if epoch != best_epoch:
+          os.remove(get_ckpt_path(epoch))
+          
 def train_epoch(logger, loader, model, optimizer, scheduler):
     model.train()
     time_start = time.time()
@@ -127,7 +152,7 @@ def train(loggers, loaders, model, optimizer, scheduler):
             scheduler.step()
         
         full_epoch_times.append(time.perf_counter() - start_time)
-        if is_ckpt_epoch(cur_epoch):
+        if is_ckpt_epoch(cur_epoch) or True: # saves for every epoch
             save_ckpt(model, optimizer, scheduler, cur_epoch)
         
         if cfg.wandb.use:
@@ -142,6 +167,9 @@ def train(loggers, loaders, model, optimizer, scheduler):
                 m = cfg.metric_best
                 best_epoch = getattr(np.array([vp[m] for vp in val_perf]),
                                      cfg.metric_agg)()
+                print("found the best epoch")
+                clean_ckpt(best_epoch)
+                print("removed ckpt files except for epoch :{} ".format(best_epoch))
                 if m in perf[0][best_epoch]:
                     best_train = f"train_{m}: {perf[0][best_epoch][m]:.4f}"
                 else:
@@ -179,7 +207,7 @@ def train(loggers, loaders, model, optimizer, scheduler):
 
     for logger in loggers:
         logger.close()
-    if cfg.train.ckpt_clean:
+    if cfg.train.ckpt_clean and False:
         clean_ckpt()
     
     if cfg.wandb.use:
