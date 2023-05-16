@@ -99,6 +99,7 @@ if __name__ == '__main__':
     if cfg.train.finetune:
         cfg = load_pretrained_model_cfg(cfg)
         loggers = create_logger()
+        loaders = create_loader()
         
         if cfg.model.type == 'egnn':
             model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=7, coords_weight=1.0,device=cfg.device)
@@ -156,6 +157,9 @@ if __name__ == '__main__':
 #                 print("~~~~~~~~~Computing Jacobian~~~~~~~~~~~~")
 
                 node_jacobian = jacobian_graph(model, input_, is_graphgym=is_graphgym, uses_pe=uses_pe)[0]
+                adj_mat = get_adj_matrix(edges.cpu())
+                print(node_jacobian.size())
+                print(adj_mat.size())
                 influence_score, distances = get_influence_score(node_jacobian, positions, node_jacobian.size(0))
 
                 dict_ = {

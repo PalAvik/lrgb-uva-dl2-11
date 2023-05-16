@@ -157,21 +157,35 @@ class EGNN2(torch.nn.Module):
         self.graph_dec = nn.Sequential(nn.Linear(self.hidden_nf, self.hidden_nf),
                                        act_fn,
                                        nn.Linear(self.hidden_nf, 21))
+
+# #         For concatenation
+#         self.graph_dec = nn.Sequential(nn.Linear(self.hidden_nf*n_layers, self.hidden_nf),
+#                                        act_fn,
+#                                        nn.Linear(self.hidden_nf, 21))
         self.to(self.device)
 
   
       
     def forward(self, h0, x, edges, edge_attr, x_weights):
         h = self.embedding(h0)
+        layer_outputs = []
         for i in range(0, self.n_layers):
             x = x - x.min(0, keepdim=True)[0]
             x = x / x.max(0, keepdim=True)[0]
             if self.node_attr: 
                 h, x, _ = self._modules["gcl_%d" % i](h, edges, x, edge_attr=edge_attr, node_attr=h0, x_weights=x_weights)
+                layer_outputs.append(h)
             else:
                 h, x, _ = self._modules["gcl_%d" % i](h, edges, x, edge_attr=edge_attr, node_attr=None, x_weights=x_weights)
 
         h = self.node_dec(h)
+
+#         # for addition
+#         if self.node_attr:  
+#             h = torch.cat(layer_outputs, dim=1)
+        
+#         h1 = torch.stack(layer_outputs, dim=0)
+#         h = torch.max(h1, dim=0)[0]
 
         pred = self.graph_dec(h)
         return pred

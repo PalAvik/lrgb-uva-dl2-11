@@ -27,11 +27,11 @@ def sparse_mx_to_torch_sparse_tensor(sparse_mx):
     return torch.sparse.FloatTensor(indices, values, shape)
 
 def get_adj_matrix(edge_index):
-        edgeList = np.array(edge_index.transpose(1, 0))
-        edgeList = list(map(tuple, edgeList))
-        d = defaultdict(list)
-        for k, v in edgeList:
-            d[k].append(v)
-        adj = nx.adjacency_matrix(nx.from_dict_of_lists(d))
-        adj_norm = preprocess_graph(adj)
-        return adj_norm
+    edgeList = np.array(edge_index.transpose(1, 0))
+    edgeList = list(map(tuple, edgeList))
+    d = defaultdict(list)
+    for k, v in edgeList:
+        d[k].append(v)
+    adj = nx.adjacency_matrix(nx.from_dict_of_lists(d))
+    adj_norm = preprocess_graph(adj)
+    return adj_norm
