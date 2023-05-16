@@ -21,7 +21,10 @@ from torch_geometric.graphgym.utils.agg_runs import agg_runs
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric.graphgym.utils.device import auto_select_device
 from torch_geometric.graphgym.register import train_dict
+from torch_geometric.graphgym.loss import compute_loss
+from sklearn.metrics import accuracy_score, f1_score
 from torch_geometric import seed_everything
+import torch.nn.functional as F
 
 from graphgps.finetuning import load_pretrained_model_cfg, \
     init_model_from_pretrained
@@ -82,23 +85,38 @@ if __name__ == '__main__':
         loggers = create_logger()
         model = create_model()
         entries = []
-        file_name = "pascal_metrics.pkl"
+        file_name = "pascal_metrics_{}.pkl".format(cfg.model.type)
         if cfg.train.finetune: 
             model = init_model_from_pretrained(model, cfg.train.finetune,  cfg.train.freeze_pretrained)
             
             print(model)      
-            # j = 0                          
+                                   
             for batch in loaders[0]:
                 batch.split = "test"
                 # if j == 25: break
-                # batch = batch.to(torch.device(cfg.device))
+                start_idx = 0 
+                batch = batch.to(torch.device(cfg.device))
+                pred, true = model(batch)
+                _ , pred_score = compute_loss(pred, true)
+                pred_int = pred_score.max(dim=1)[1]
+                
                 for i in range(batch.num_graphs):
                      graph = batch[i]
+                     n_nodes = graph.x.size(0)
+                     # print("n nodes: ", n_nodes)
+                     end_idx = start_idx+n_nodes
+                     pred_slice = pred_int[start_idx:end_idx].cpu().detach().numpy()
+                     true_slice =  true[start_idx:end_idx].cpu().detach().numpy()
+                     reformat = lambda x: round(float(x), cfg.round)
+                     acc =  reformat(accuracy_score(true_slice, pred_slice))
+                     f1 =  reformat(f1_score(true_slice, pred_slice, average='macro', zero_division=0))
+                   
                      lc_val =  lc.get_graph_value(graph, normalization="sym", is_undirected=True)
                      uc_val =  uc.get_graph_value(graph, normalization="sym", is_undirected=True)
                      dm_val = dm.get_graph_value(graph, normalization="sym", is_undirected=True)
                      s_val = sp.get_graph_value(graph, normalization="sym", is_undirected=True)
-                     entries.append({"lc":lc_val,"uc":uc_val,"dm":dm_val,"sp":s_val})
+                     entries.append({"lc":lc_val,"uc":uc_val,"dm":dm_val,"sp":s_val, "f1":f1, "acc":acc})
+                     start_idx = n_nodes
                 print("batch done")
                 # j +=  1
             
