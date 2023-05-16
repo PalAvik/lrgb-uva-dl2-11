@@ -105,7 +105,10 @@ if __name__ == '__main__':
         loaders = create_loader()
         
         if cfg.model.type == 'egnn':
-            model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=7, coords_weight=1.0,device=cfg.device)
+            model = custom_egnn.EGNN2(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,device=cfg.device)
+            is_graphgym = False
+        elif cfg.model.type == 'enn':
+             model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,device=cfg.device)
             is_graphgym = False
         else:
             model = create_model()
@@ -136,7 +139,7 @@ if __name__ == '__main__':
                         graph = compute_posenc_stats(graph, ['LapPE'], is_undirected=True, cfg=cfg)
                         uses_pe = True
 
-                    if cfg.model.type == 'egnn':
+                    if cfg.model.type in ['enn', 'egnn']:
                         nodes = graph.x[:,:12].to(torch.device(cfg.device))
                     else:
                         nodes = graph.x.to(torch.device(cfg.device))
@@ -151,7 +154,7 @@ if __name__ == '__main__':
                     edges.requires_grad_(False)
                     edge_attr.requires_grad_(True)
 
-                    if cfg.model.type == 'egnn':
+                    if cfg.model.type in ['enn, 'egnn']:
                         input_ = (nodes, positions, edges, edge_attr)
                     elif cfg.model.type == 'GPSModel':
                         EigVals = graph.EigVals.to(torch.device(cfg.device))
