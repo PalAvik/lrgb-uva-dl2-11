@@ -39,6 +39,7 @@ from graphgps.finetuning import load_pretrained_model_cfg, \
 from graphgps.logger import create_logger
 from graphgps.custom.egnn import custom_egnn
 from graphgps.jacobian.utils import jacobian_graph
+from graphgps.jacobian.graphutils import get_adj_matrix # use this @Avik
 from graphgps.transform.posenc_stats import compute_posenc_stats
 import pickle
 from tqdm import tqdm
