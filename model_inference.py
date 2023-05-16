@@ -61,17 +61,20 @@ def custom_set_out_dir(cfg, cfg_fname, name_tag):
     cfg.out_dir = os.path.join(cfg.out_dir, run_name)
     
     
-def get_influence_score(node_jacobian, positions, total_nodes):
+def get_influence_score(node_jacobian, adj_mat, positions):
     total_nodes = node_jacobian.size(0)
     inf_score = torch.zeros((total_nodes,total_nodes))
     distances = torch.zeros((total_nodes,total_nodes))
+    
+    node_jacobian = node_jacobian.sum((1,3))
+    node_jacobian = node_jacobian @ adj_mat
 
     for source in range(total_nodes):
         source_pos = positions[source].unsqueeze(0)
         for target in range(total_nodes):
              if source != target:
-                h_x_y = node_jacobian[target,:,source,:].sum()
-                h_x_all = node_jacobian[:,:,source,:].sum()
+                h_x_y = node_jacobian[target,source]
+                h_x_all = node_jacobian[:,source].sum()
                 I_x_y = h_x_y / h_x_all
                 inf_score[source][target] = I_x_y.abs().item()
                 D_x_y = torch.cdist(source_pos, positions[target].unsqueeze(0), p=2)
@@ -111,6 +114,8 @@ if __name__ == '__main__':
         model = init_model_from_pretrained(model, cfg.train.finetune,
                                                cfg.train.freeze_pretrained)
 
+        model.eval()
+        
         entries = []
         file_name = f"inf_scores_{cfg.model.type}.pkl"
         
@@ -118,56 +123,55 @@ if __name__ == '__main__':
         data_path_dir = './datasets/VOCSuperpixels/small_test_set'
         uses_pe = False
         
-        for b_idx in tqdm(range(no_batches)):
-            data_path = os.path.join(data_path_dir, f'batch_{b_idx}.pt')
-            graph_batch = torch.load(data_path)
-            
-            for g_idx in tqdm(range(graph_batch.num_graphs)):
-        
-                graph = graph_batch[g_idx]
-                
-                if cfg.posenc_LapPE.enable == True:
-                    graph = compute_posenc_stats(graph, ['LapPE'], is_undirected=True, cfg=cfg)
-                    uses_pe = True
+        with torch.no_grad():
+            for b_idx in tqdm(range(no_batches)):
+                data_path = os.path.join(data_path_dir, f'batch_{b_idx}.pt')
+                graph_batch = torch.load(data_path)
 
-                if cfg.model.type == 'egnn':
-                    nodes = graph.x[:,:12].to(torch.device(cfg.device))
-                else:
-                    nodes = graph.x.to(torch.device(cfg.device))
+                for g_idx in tqdm(range(graph_batch.num_graphs)):
 
-                positions = graph.x[:,12:].to(torch.device(cfg.device))
-                edges = graph.edge_index.to(torch.device(cfg.device))
-                edge_attr = graph.edge_attr.to(torch.device(cfg.device))
+                    graph = graph_batch[g_idx]
 
-                true = graph.y
-                nodes.requires_grad_(True)
-                edges = edges.float()
-                edges.requires_grad_(False)
-                edge_attr.requires_grad_(True)
+                    if cfg.posenc_LapPE.enable == True:
+                        graph = compute_posenc_stats(graph, ['LapPE'], is_undirected=True, cfg=cfg)
+                        uses_pe = True
 
-                if cfg.model.type == 'egnn':
-                    input_ = (nodes, positions, edges, edge_attr)
-                elif cfg.model.type == 'GPSModel':
-                    EigVals = graph.EigVals.to(torch.device(cfg.device))
-                    EigVecs = graph.EigVecs.to(torch.device(cfg.device))
-                    input_ = (nodes, edges, edge_attr, EigVals, EigVecs)
-                else:
-                    input_ = (nodes, edges, edge_attr)
+                    if cfg.model.type == 'egnn':
+                        nodes = graph.x[:,:12].to(torch.device(cfg.device))
+                    else:
+                        nodes = graph.x.to(torch.device(cfg.device))
 
-#                 print("~~~~~~~~~Computing Jacobian~~~~~~~~~~~~")
+                    positions = graph.x[:,12:].to(torch.device(cfg.device))
+                    edges = graph.edge_index.to(torch.device(cfg.device))
+                    edge_attr = graph.edge_attr.to(torch.device(cfg.device))
 
-                node_jacobian = jacobian_graph(model, input_, is_graphgym=is_graphgym, uses_pe=uses_pe)[0]
-                adj_mat = get_adj_matrix(edges.cpu())
-                print(node_jacobian.size())
-                print(adj_mat.size())
-                influence_score, distances = get_influence_score(node_jacobian, positions, node_jacobian.size(0))
+                    true = graph.y
+                    nodes.requires_grad_(True)
+                    edges = edges.float()
+                    edges.requires_grad_(False)
+                    edge_attr.requires_grad_(True)
 
-                dict_ = {
-                    "influence_score" : influence_score.cpu().detach().numpy(), 
-                    "xpos" : positions.cpu().detach().numpy(), 
-                    "edges" : edges.cpu().detach().numpy(),
-                }
-                entries.append(dict_)
+                    if cfg.model.type == 'egnn':
+                        input_ = (nodes, positions, edges, edge_attr)
+                    elif cfg.model.type == 'GPSModel':
+                        EigVals = graph.EigVals.to(torch.device(cfg.device))
+                        EigVecs = graph.EigVecs.to(torch.device(cfg.device))
+                        input_ = (nodes, edges, edge_attr, EigVals, EigVecs)
+                    else:
+                        input_ = (nodes, edges, edge_attr)
 
-        dump_pkl(entries, file_name=file_name)
-        print("Content dumped in pkl file: ", file_name)
+    #                 print("~~~~~~~~~Computing Jacobian~~~~~~~~~~~~")
+
+                    node_jacobian = jacobian_graph(model, input_, is_graphgym=is_graphgym, uses_pe=uses_pe)[0]
+                    adj_mat = get_adj_matrix(edges.cpu()).to(torch.device(cfg.device))
+                    influence_score, distances = get_influence_score(node_jacobian, adj_mat, positions)
+
+                    dict_ = {
+                        "influence_score" : influence_score.cpu().detach().numpy(), 
+                        "xpos" : positions.cpu().detach().numpy(), 
+                        "edges" : edges.cpu().detach().numpy(),
+                    }
+                    entries.append(dict_)
+
+            dump_pkl(entries, file_name=file_name)
+            print("Content dumped in pkl file: ", file_name)
