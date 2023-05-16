@@ -134,3 +134,4 @@ def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False):
             if not key.startswith('post_mp'):
                 param.requires_grad = False
     return model
+
