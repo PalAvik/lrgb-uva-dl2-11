@@ -33,6 +33,5 @@ def get_adj_matrix(edge_index):
         for k, v in edgeList:
             d[k].append(v)
         adj = nx.adjacency_matrix(nx.from_dict_of_lists(d))
-        print(adj.shape)
         adj_norm = preprocess_graph(adj)
         return adj_norm
