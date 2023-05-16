@@ -14,22 +14,18 @@ from torch_geometric.graphgym.logger import set_printing
 from torch_geometric.graphgym.optimizer import create_optimizer, \
     create_scheduler, OptimizerConfig, SchedulerConfig
 from torch_geometric.graphgym.model_builder import create_model
-from torch_geometric.graphgym.train import train
+# from torch_geometric.graphgym.train import train
+from graphgps.train import custom_train
 from torch_geometric.graphgym.utils.agg_runs import agg_runs
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric.graphgym.utils.device import auto_select_device
 from torch_geometric.graphgym.register import train_dict
-from torch_geometric.graphgym.register import register_config
 from torch_geometric import seed_everything
 
 from graphgps.finetuning import load_pretrained_model_cfg, \
     init_model_from_pretrained
 from graphgps.logger import create_logger
-
-
-def set_sdrf_cfg(cfg):
-    cfg.dataset.sdrf_loops = 0
-
+# from graphgps.custom.train_newschedule import train
 
 def new_optimizer_config(cfg):
     return OptimizerConfig(optimizer=cfg.optim.optimizer,
@@ -113,7 +109,6 @@ if __name__ == '__main__':
     # Load cmd line args
     args = parse_args()
     # Load config file
-    register_config(5, set_sdrf_cfg)
     set_cfg(cfg)
     load_cfg(cfg, args)
     custom_set_out_dir(cfg, args.cfg_file, cfg.name_tag)
@@ -139,7 +134,7 @@ if __name__ == '__main__':
         loaders = create_loader()
         loggers = create_logger()
         model = create_model()
-        if cfg.train.finetune:
+        if cfg.train.finetune: 
             model = init_model_from_pretrained(model, cfg.train.finetune,
                                                cfg.train.freeze_pretrained)
         optimizer = create_optimizer(model.parameters(),
@@ -155,7 +150,8 @@ if __name__ == '__main__':
             if cfg.wandb.use:
                 logging.warning("[W] WandB logging is not supported with the "
                                 "default train.mode, set it to `custom`")
-            train(loggers, loaders, model, optimizer, scheduler)
+            # train(loggers, loaders, model, optimizer, scheduler)
+            custom_train.custom_train(loggers, loaders, model, optimizer, scheduler)
         else:
             train_dict[cfg.train.mode](loggers, loaders, model, optimizer,
                                        scheduler)
