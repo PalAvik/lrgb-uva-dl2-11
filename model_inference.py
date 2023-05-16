@@ -154,7 +154,7 @@ if __name__ == '__main__':
                     edges.requires_grad_(False)
                     edge_attr.requires_grad_(True)
 
-                    if cfg.model.type in ['enn, 'egnn']:
+                    if cfg.model.type in ['enn', 'egnn']:
                         input_ = (nodes, positions, edges, edge_attr)
                     elif cfg.model.type == 'GPSModel':
                         EigVals = graph.EigVals.to(torch.device(cfg.device))
