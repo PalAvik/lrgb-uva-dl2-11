@@ -10,6 +10,7 @@ from yacs.config import CfgNode
 def get_final_pretrained_ckpt(ckpt_dir):
     if osp.exists(ckpt_dir):
         names = os.listdir(ckpt_dir)
+        print(names)
         epochs = [int(name.split('.')[0]) for name in names]
         final_epoch = max(epochs)
     else:
@@ -59,8 +60,8 @@ def load_pretrained_model_cfg(cfg):
     set_new_cfg_allowed(pretrained_cfg, True)
     pretrained_cfg.merge_from_file(pretrained_cfg_fname)
 
-    assert cfg.model.type == 'GPSModel', \
-        "Fine-tuning regime is untested for other model types."
+#     assert cfg.model.type == 'GPSModel', \
+#         "Fine-tuning regime is untested for other model types."
     compare_cfg(cfg, pretrained_cfg, 'model.type', strict=True)
     compare_cfg(cfg, pretrained_cfg, 'model.graph_pooling')
     compare_cfg(cfg, pretrained_cfg, 'model.edge_decoding')
@@ -115,14 +116,14 @@ def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False):
     pretrained_dict = ckpt['model_state']
     model_dict = model.state_dict()
 
-    # print('>>>> pretrained dict: ')
-    # print(pretrained_dict.keys())
-    # print('>>>> model dict: ')
-    # print(model_dict.keys())
+#     print('>>>> pretrained dict: ')
+#     print(pretrained_dict.keys())
+#     print('>>>> model dict: ')
+#     print(model_dict.keys())
 
     # Filter out prediction head parameter keys.
-    pretrained_dict = {k: v for k, v in pretrained_dict.items()
-                       if not k.startswith('post_mp')}
+    pretrained_dict = {k: v for k, v in pretrained_dict.items()}
+#                        if not k.startswith('post_mp')}
     # Overwrite entries in the existing state dict.
     model_dict.update(pretrained_dict)
     # Load the new state dict.
@@ -133,3 +134,4 @@ def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False):
             if not key.startswith('post_mp'):
                 param.requires_grad = False
     return model
+
