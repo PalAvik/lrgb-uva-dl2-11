@@ -134,11 +134,11 @@ if __name__ == '__main__':
         loaders = create_loader()
         loggers = create_logger()
          
-        if cfg.model.type == 'egnn2':
+        if cfg.model.type == 'egnn':
             model = custom_egnn.EGNN2(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,device=cfg.device)
             from graphgps.custom import custom_train2 as custom_train
-        elif cfg.model.type == 'egnn':
-            model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=7, coords_weight=1.0,device=cfg.device)
+        elif cfg.model.type == 'enn':
+            model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,device=cfg.device)
             from graphgps.custom import custom_train
             
         optimizer = create_optimizer(model.parameters(), new_optimizer_config(cfg))
