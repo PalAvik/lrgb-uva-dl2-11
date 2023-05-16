@@ -115,7 +115,16 @@ if __name__ == '__main__':
                      uc_val =  uc.get_graph_value(graph, normalization="sym", is_undirected=True)
                      dm_val = dm.get_graph_value(graph, normalization="sym", is_undirected=True)
                      s_val = sp.get_graph_value(graph, normalization="sym", is_undirected=True)
-                     entries.append({"lc":lc_val,"uc":uc_val,"dm":dm_val,"sp":s_val, "f1":f1, "acc":acc})
+                     dict_ = {
+                    "lc":lc_val,"uc":uc_val,"dm":dm_val,"sp":s_val, 
+                    "f1":f1, "acc":acc,
+                    "preds": pred_slice, "true": true_slice,
+                    "node_feat": graph.x.cpu().detach().numpy(), 
+                    "edge_attr": graph.edge_attr.cpu().detach().numpy(),
+                    "edges" : graph.edge_index.cpu().detach().numpy(),
+                     }
+                    
+                     entries.append(dict_)
                      start_idx = n_nodes
                 print("batch done")
                 # j +=  1
