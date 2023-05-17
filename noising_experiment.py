@@ -13,6 +13,8 @@ python model_inference.py --cfg configs/GCN/vocsuperpixels-GCN.yaml device cpu
 """
 
 import os
+
+import pandas as pd
 import torch
 
 import graphgps  # noqa, register custom modules
@@ -111,30 +113,45 @@ if __name__ == '__main__':
 
 
     with torch.no_grad():
-        data = dataset[0]
-        print(data.x.shape)
-
-        helper = NoiserHelper(dataset)
-        noiser = OneGraphNoise(data, model)
-
-        result_new = noiser.get_results_for_all_target_nodes(replacement_value=helper.mean_of_means)
-        # result_old = noiser.get_result_for_all_path_lengths(0, replacement_value=None)
-
-        print(result_new)
-
-        # logits, target = model(data)
-        #
-        # predictions = logits.argmax(dim=1)
-        #
-        # print(logits.shape)
-        # print(target.shape)
-        # print(predictions.shape)
-        #
-        # accuracy = (predictions == target).sum()/target.shape[0]
-        # print(accuracy)
-        raise()
+        N = 1 # number of graphs to pull data for
+        T = 5
 
         # Need to append data that is tagged by batch number, graph number, target node,
         #                                       path length, prediction
+
+        results_per_graph = []
+
+        for graph_id in range(N):
+
+            data = dataset[graph_id]
+
+            helper = NoiserHelper(dataset)
+            noiser = OneGraphNoise(data, model)
+
+            result_new = noiser.get_results_for_all_target_nodes(replacement_value=helper.mean_of_means, T=T)
+
+            ## Get result for vanilla model (i.e. not fudged)
+            logits, target = model(data)
+            predictions = logits.argmax(dim=1)
+
+            # Write all data for this graph
+            out_frames = []
+            for target_node in range(result_new.shape[0]):
+                row = {'graph_id': graph_id,
+                       'target_node': target_node,
+                       'truth': data.y[target_node],
+                       'standard_prediction': predictions[target_node]
+                       }
+                for path_length in result_new.shape[1]:
+                    row[f"path_length_{path_length}_prediction"] = result_new[target_node, path_length]
+                row = pd.DataFrame.from_dict(row)
+                out_frames.append(row)
+            df = pd.concat(out_frames)
+            results_per_graph.append(df)
+
+        final = pd.concat(results_per_graph)
+        final.to_pickle('test_noising_experiment.pickle')
+        
+
 
 

@@ -102,17 +102,16 @@ class OneGraphNoise:
 
             logits, label = self.model(modified_data)
             predictions = logits.argmax(dim=1)
+            prediction = predictions[target_node_label].item()
 
-            correct_prediction = (predictions == label)[target_node_label]
-            result[path_length] = int(correct_prediction.item())
+            result[path_length] = prediction
 
         return result
 
-    def get_results_for_all_target_nodes(self, replacement_value):
-        num_nodes = self.graph.number_of_nodes()
-
+    def get_results_for_all_target_nodes(self, replacement_value, T=5):
+        # num_nodes = self.graph.number_of_nodes()
         # just for testing!
-        num_nodes = 5
+        num_nodes = T
 
         all_results = []
         for node_label in range(num_nodes):
