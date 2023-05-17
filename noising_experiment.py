@@ -137,13 +137,13 @@ if __name__ == '__main__':
             # Write all data for this graph
             out_frames = []
             for target_node in range(result_new.shape[0]):
-                row = {'graph_id': graph_id,
-                       'target_node': target_node,
-                       'truth': data.y[target_node],
-                       'standard_prediction': predictions[target_node]
+                row = {'graph_id': [graph_id],
+                       'target_node': [target_node],
+                       'truth': [data.y[target_node].item()],
+                       'standard_prediction': [predictions[target_node].item()]
                        }
-                for path_length in result_new.shape[1]:
-                    row[f"path_length_{path_length}_prediction"] = result_new[target_node, path_length]
+                for path_length in range(result_new.shape[1]):
+                    row[f"path_length_{path_length}_prediction"] = [result_new[target_node, path_length]]
                 row = pd.DataFrame.from_dict(row)
                 out_frames.append(row)
             df = pd.concat(out_frames)
@@ -151,7 +151,7 @@ if __name__ == '__main__':
 
         final = pd.concat(results_per_graph)
         final.to_pickle('test_noising_experiment.pickle')
-        
+
 
 
 
