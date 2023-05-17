@@ -106,10 +106,13 @@ if __name__ == '__main__':
 
             for g_idx in tqdm(range(graph_batch.num_graphs)):
 
-                data = graph_batch[g_idx]
+                graph = graph_batch[g_idx]
+
 
                 if cfg.posenc_LapPE.enable == True:
-                    graph = compute_posenc_stats(graph, ['LapPE'], is_undirected=True, cfg=cfg)
+                    graph = compute_posenc_stats(graph,
+                                                 ['LapPE'],
+                                                 is_undirected=True, cfg=cfg)
                     uses_pe = True
 
                 if cfg.model.type in ['enn', 'egnn']:
@@ -135,6 +138,16 @@ if __name__ == '__main__':
                     input_ = (nodes, edges, edge_attr, EigVals, EigVecs)
                 else:
                     input_ = (nodes, edges, edge_attr)
+
+                prediction = model(input_)
+                print(prediction)
+                print(prediction.shape)
+
+                raise()
+
+                # Need to append data that is tagged by batch number, graph number, target node,
+                #                                       path length, prediction
+
 
         dump_pkl(entries, file_name=file_name)
         print("Content dumped in pkl file: ", file_name)
