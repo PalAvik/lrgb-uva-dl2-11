@@ -39,11 +39,10 @@ from graphgps.finetuning import load_pretrained_model_cfg, \
 from graphgps.logger import create_logger
 from graphgps.custom.egnn import custom_egnn
 from graphgps.jacobian.utils import jacobian_graph
-from graphgps.jacobian.graphutils import get_adj_matrix # use this @Avik
+from graphgps.jacobian.graphutils import get_adj_matrix  # use this @Avik
 from graphgps.transform.posenc_stats import compute_posenc_stats
 import pickle
 from tqdm import tqdm
-
 
 
 def custom_set_out_dir(cfg, cfg_fname, name_tag):
@@ -59,22 +58,22 @@ def custom_set_out_dir(cfg, cfg_fname, name_tag):
     run_name = os.path.splitext(os.path.basename(cfg_fname))[0]
     run_name += f"-{name_tag}" if name_tag else ""
     cfg.out_dir = os.path.join(cfg.out_dir, run_name)
-    
-    
+
+
 def get_influence_score(node_jacobian, adj_mat, positions):
     total_nodes = node_jacobian.size(0)
-    inf_score = torch.zeros((total_nodes,total_nodes))
-    distances = torch.zeros((total_nodes,total_nodes))
-    
-    node_jacobian = node_jacobian.sum((1,3))
+    inf_score = torch.zeros((total_nodes, total_nodes))
+    distances = torch.zeros((total_nodes, total_nodes))
+
+    node_jacobian = node_jacobian.sum((1, 3))
     node_jacobian = node_jacobian @ adj_mat
 
     for source in range(total_nodes):
         source_pos = positions[source].unsqueeze(0)
         for target in range(total_nodes):
-             if source != target:
-                h_x_y = node_jacobian[target,source]
-                h_x_all = node_jacobian[:,source].sum()
+            if source != target:
+                h_x_y = node_jacobian[target, source]
+                h_x_all = node_jacobian[:, source].sum()
                 I_x_y = h_x_y / h_x_all
                 inf_score[source][target] = I_x_y.abs().item()
                 D_x_y = torch.cdist(source_pos, positions[target].unsqueeze(0), p=2)
@@ -98,34 +97,36 @@ if __name__ == '__main__':
     dump_cfg(cfg)
     # Set Pytorch environment
     torch.set_num_threads(cfg.num_threads)
-    
+
     if cfg.train.finetune:
         cfg = load_pretrained_model_cfg(cfg)
         loggers = create_logger()
         loaders = create_loader()
-        
+
         if cfg.model.type == 'egnn':
-            model = custom_egnn.EGNN2(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,device=cfg.device)
+            model = custom_egnn.EGNN2(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,
+                                      device=cfg.device)
             is_graphgym = False
         elif cfg.model.type == 'enn':
-             model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,device=cfg.device)
+            model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,
+                                     device=cfg.device)
             is_graphgym = False
         else:
             model = create_model()
             is_graphgym = True
-        
+
         model = init_model_from_pretrained(model, cfg.train.finetune,
-                                               cfg.train.freeze_pretrained)
+                                           cfg.train.freeze_pretrained)
 
         model.eval()
-        
+
         entries = []
         file_name = f"inf_scores_{cfg.model.type}.pkl"
-        
+
         no_batches = 2
         data_path_dir = './datasets/VOCSuperpixels/small_test_set'
         uses_pe = False
-        
+
         with torch.no_grad():
             for b_idx in tqdm(range(no_batches)):
                 data_path = os.path.join(data_path_dir, f'batch_{b_idx}.pt')
@@ -140,11 +141,11 @@ if __name__ == '__main__':
                         uses_pe = True
 
                     if cfg.model.type in ['enn', 'egnn']:
-                        nodes = graph.x[:,:12].to(torch.device(cfg.device))
+                        nodes = graph.x[:, :12].to(torch.device(cfg.device))
                     else:
                         nodes = graph.x.to(torch.device(cfg.device))
 
-                    positions = graph.x[:,12:].to(torch.device(cfg.device))
+                    positions = graph.x[:, 12:].to(torch.device(cfg.device))
                     edges = graph.edge_index.to(torch.device(cfg.device))
                     edge_attr = graph.edge_attr.to(torch.device(cfg.device))
 
@@ -163,16 +164,16 @@ if __name__ == '__main__':
                     else:
                         input_ = (nodes, edges, edge_attr)
 
-    #                 print("~~~~~~~~~Computing Jacobian~~~~~~~~~~~~")
+                    #                 print("~~~~~~~~~Computing Jacobian~~~~~~~~~~~~")
 
                     node_jacobian = jacobian_graph(model, input_, is_graphgym=is_graphgym, uses_pe=uses_pe)[0]
                     adj_mat = get_adj_matrix(edges.cpu()).to(torch.device(cfg.device))
                     influence_score, distances = get_influence_score(node_jacobian, adj_mat, positions)
 
                     dict_ = {
-                        "influence_score" : influence_score.cpu().detach().numpy(), 
-                        "xpos" : positions.cpu().detach().numpy(), 
-                        "edges" : edges.cpu().detach().numpy(),
+                        "influence_score": influence_score.cpu().detach().numpy(),
+                        "xpos": positions.cpu().detach().numpy(),
+                        "edges": edges.cpu().detach().numpy(),
                     }
                     entries.append(dict_)
 
