@@ -99,13 +99,14 @@ class OneGraphNoise:
         for path_length in buckets.keys():
             modified_data = self.obtain_modified_data(buckets,
                                                       path_length,
-                                                      replacement_value=replacement_value)
+                                                      replacement_value=replacement_value
+                                                      )
 
             logits, label = self.model(modified_data)
             predictions = logits.argmax(dim=1)
             prediction = predictions[target_node_label].item()
 
-            result[path_length] = prediction
+            result[path_length - 1] = prediction
 
         return result
 

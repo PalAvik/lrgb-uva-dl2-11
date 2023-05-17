@@ -39,7 +39,6 @@ import pickle
 from analysis.noising_experiments.noiser import OneGraphNoise, NoiserHelper
 
 
-
 def custom_set_out_dir(cfg, cfg_fname, name_tag):
     """Set custom main output directory path to cfg.
     Include the config filename and name_tag in the new :obj:`cfg.out_dir`.
@@ -149,7 +148,7 @@ if __name__ == '__main__':
             results_per_graph.append(df)
 
         final = pd.concat(results_per_graph)
-        final.to_pickle('noising_experiment.pickle')
+        final.to_pickle('noising_experiment_gcn_1_graph.pickle')
 
 
 
