@@ -117,10 +117,10 @@ if __name__ == '__main__':
         helper = NoiserHelper(dataset)
         noiser = OneGraphNoise(data, model)
 
-        result_new = noiser.get_result_for_all_path_lengths(0, replacement_value=helper.mean_of_means)
+        result_new = noiser.get_results_for_all_target_nodes(replacement_value=helper.mean_of_means)
         # result_old = noiser.get_result_for_all_path_lengths(0, replacement_value=None)
 
-        # print(result_old)
+        print(result_new)
 
         # logits, target = model(data)
         #

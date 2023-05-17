@@ -87,11 +87,7 @@ class OneGraphNoise:
 
         return new_data
 
-
-
-
     def get_result_for_all_path_lengths(self, target_node_label, replacement_value):
-        """Returns modified """
         buckets = self.get_path_length_buckets(target_node_label)
 
         result = np.zeros(self.maximum_path_length)
@@ -109,6 +105,22 @@ class OneGraphNoise:
             result[path_length] = correct_prediction.item()
 
         return result
+
+    def get_results_for_all_target_nodes(self, replacement_value):
+        num_nodes = self.graph.number_of_nodes()
+
+        # just for testing!
+        num_nodes = 5
+
+        all_results = []
+        for node_label in range(num_nodes):
+            node_results = self.get_result_for_all_path_lengths(target_node_label=node_label,
+                                                                replacement_value=replacement_value
+                                                                )
+            all_results.append(node_results)
+
+        return np.row_stack(all_results)
+
 
 
 
