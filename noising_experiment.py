@@ -112,12 +112,15 @@ if __name__ == '__main__':
 
     with torch.no_grad():
         data = dataset[0]
+        print(data.x.shape)
 
         helper = NoiserHelper(dataset)
         noiser = OneGraphNoise(data, model)
 
-        OneGraphNoise.get_result_for_all_path_lengths(0, replacement_value=helper.mean_of_means)
+        result_new = noiser.get_result_for_all_path_lengths(0, replacement_value=helper.mean_of_means)
+        # result_old = noiser.get_result_for_all_path_lengths(0, replacement_value=None)
 
+        # print(result_old)
 
         # logits, target = model(data)
         #

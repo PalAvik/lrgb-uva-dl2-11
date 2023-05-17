@@ -48,6 +48,10 @@ class OneGraphNoise:
         all_shortest_paths = nx.algorithms.shortest_paths.dense.floyd_warshall_numpy(self.graph)
         return all_shortest_paths.astype(int)
 
+    @property
+    def maximum_path_length(self):
+        return self.all_shortest_paths.max()
+
     def get_path_length_buckets(self, target_node_label):
         # get the shortest paths to target node
         shortest_paths_to_target = self.all_shortest_paths[:, target_node_label]  # [i, j] is the shortest path from i to j
@@ -70,21 +74,19 @@ class OneGraphNoise:
                              down_sampling=None
                              ):
 
-        # TODO add in random sampling of the path length buckts
-        if replacement_value:
-            new_data = self.data.clone()
-            indices = path_length_buckets[path_length]
-            if down_sampling:
-                assert type(down_sampling) == float
-                down_sampling_size = int(down_sampling*len(indices))
-                indices = np.random.choice(indices, replace=False, size=down_sampling_size)
+        new_data = self.data.clone()
+        indices = path_length_buckets[path_length]
 
-            for index in indices:
-                new_data.x[index, :] = replacement_value # can swap this bit out based on what we want to do
+        if down_sampling:
+            assert type(down_sampling) == float
+            down_sampling_size = int(down_sampling*len(indices))
+            indices = np.random.choice(indices, replace=False, size=down_sampling_size)
 
-            return new_data
-        else:
-            return self.data
+        for index in indices:
+            new_data.x[index, :] = replacement_value # can swap this bit out based on what we want to do
+
+        return new_data
+
 
 
 
@@ -92,8 +94,10 @@ class OneGraphNoise:
         """Returns modified """
         buckets = self.get_path_length_buckets(target_node_label)
 
-        result = {}
-        for path_length in buckets.keys():
+        result = np.zeros(self.maximum_path_length)
+        result = result.astype(bool)
+
+        for path_length in range(self.maximum_path_length):
             modified_data = self.obtain_modified_data(buckets,
                                                       path_length,
                                                       replacement_value=replacement_value)
@@ -102,7 +106,7 @@ class OneGraphNoise:
             predictions = logits.argmax(dim=1)
 
             correct_prediction = (predictions == label)[target_node_label]
-            result = path_length[correct_prediction]
+            result[path_length] = correct_prediction.item()
 
         return result
 
