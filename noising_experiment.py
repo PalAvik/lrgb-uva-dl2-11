@@ -29,8 +29,9 @@ from graphgps.finetuning import load_pretrained_model_cfg, \
     init_model_from_pretrained
 from graphgps.logger import create_logger
 from graphgps.custom.egnn import custom_egnn
-from graphgps.jacobian.utils import jacobian_graph
-from graphgps.jacobian.graphutils import get_adj_matrix  # use this @Avik
+from graphgps.loader.dataset.voc_superpixels import VOCSuperpixels
+
+
 from graphgps.transform.posenc_stats import compute_posenc_stats
 import pickle
 from tqdm import tqdm
@@ -68,82 +69,52 @@ if __name__ == '__main__':
     # Set Pytorch environment
     torch.set_num_threads(cfg.num_threads)
 
-    if cfg.train.finetune:
-        cfg = load_pretrained_model_cfg(cfg)
-        loggers = create_logger()
-        loaders = create_loader()
 
-        if cfg.model.type == 'egnn':
-            model = custom_egnn.EGNN2(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,
-                                      device=cfg.device)
-            is_graphgym = False
-        elif cfg.model.type == 'enn':
-            model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,
-                                     device=cfg.device)
-            is_graphgym = False
+    print('Loading Model')
+    assert cfg.train.finetune
 
-        else:
-            model = create_model()
-            is_graphgym = True
+    cfg = load_pretrained_model_cfg(cfg)
+    loggers = create_logger()
+    loaders = create_loader()
+
+    if cfg.model.type == 'egnn':
+        model = custom_egnn.EGNN2(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,
+                                  device=cfg.device)
+        is_graphgym = False
+    elif cfg.model.type == 'enn':
+        model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,
+                                 device=cfg.device)
+        is_graphgym = False
+
+    else:
+        model = create_model()
+        is_graphgym = True
 
     model = init_model_from_pretrained(model,
-                                       cfg.train.finetune,
-                                       cfg.train.freeze_pretrained)
+                                        cfg.train.finetune,
+                                        cfg.train.freeze_pretrained,
+                                        device='cpu'
+                                       )
 
     model.eval()
 
     entries = []
     file_name = f"inf_scores_{cfg.model.type}.pkl"
 
-    no_batches = 2
-    data_path_dir = './datasets/VOCSuperpixels/small_test_set'
-    uses_pe = False
+    dataset = VOCSuperpixels(root='datasets/VOCSuperpixels',
+                             slic_compactness=10,
+                             name='edge_wt_only_coord',
+                             split='test')
+
+    print('Dataset loaded')
+
 
     with torch.no_grad():
-        for b_idx in tqdm(range(no_batches)):
-            data_path = os.path.join(data_path_dir, f'batch_{b_idx}.pt')
-            graph_batch = torch.load(data_path)
+        data = dataset[0]
+        prediction = model(data)
+        print(prediction)
 
-            for g_idx in tqdm(range(graph_batch.num_graphs)):
-
-                graph = graph_batch[g_idx]
-
-
-                if cfg.posenc_LapPE.enable == True:
-                    graph = compute_posenc_stats(graph,
-                                                 ['LapPE'],
-                                                 is_undirected=True, cfg=cfg)
-                    uses_pe = True
-
-                if cfg.model.type in ['enn', 'egnn']:
-                    nodes = graph.x[:, :12].to(torch.device(cfg.device))
-                else:
-                    nodes = graph.x.to(torch.device(cfg.device))
-
-                positions = graph.x[:, 12:].to(torch.device(cfg.device))
-                edges = graph.edge_index.to(torch.device(cfg.device))
-                edge_attr = graph.edge_attr.to(torch.device(cfg.device))
-
-                true = graph.y
-                nodes.requires_grad_(True)
-                edges = edges.float()
-                edges.requires_grad_(False)
-                edge_attr.requires_grad_(True)
-
-                if cfg.model.type in ['enn', 'egnn']:
-                    input_ = (nodes, positions, edges, edge_attr)
-                elif cfg.model.type == 'GPSModel':
-                    EigVals = graph.EigVals.to(torch.device(cfg.device))
-                    EigVecs = graph.EigVecs.to(torch.device(cfg.device))
-                    input_ = (nodes, edges, edge_attr, EigVals, EigVecs)
-                else:
-                    input_ = (nodes, edges, edge_attr)
-
-                prediction = model(input_)
-                print(prediction)
-                print(prediction.shape)
-
-                raise()
+        raise()
 
                 # Need to append data that is tagged by batch number, graph number, target node,
                 #                                       path length, prediction
