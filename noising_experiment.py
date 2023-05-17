@@ -19,8 +19,8 @@ import graphgps  # noqa, register custom modules
 
 from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric.graphgym.config import (cfg, dump_cfg,
-                                             set_agg_dir, set_cfg, load_cfg,
-                                             makedirs_rm_exist)
+                                             set_cfg, load_cfg,
+                                             )
 from torch_geometric.graphgym.loader import create_loader
 
 from torch_geometric.graphgym.model_builder import create_model
@@ -31,10 +31,11 @@ from graphgps.logger import create_logger
 from graphgps.custom.egnn import custom_egnn
 from graphgps.loader.dataset.voc_superpixels import VOCSuperpixels
 
-
-from graphgps.transform.posenc_stats import compute_posenc_stats
 import pickle
-from tqdm import tqdm
+
+
+from analysis.noising_experiments.noiser import OneGraphNoise, NoiserHelper
+
 
 
 def custom_set_out_dir(cfg, cfg_fname, name_tag):
@@ -111,14 +112,26 @@ if __name__ == '__main__':
 
     with torch.no_grad():
         data = dataset[0]
-        prediction = model(data)
-        print(prediction)
 
+        helper = NoiserHelper(dataset)
+        noiser = OneGraphNoise(data, model)
+
+        OneGraphNoise.get_result_for_all_path_lengths(0, replacement_value=helper.mean_of_means)
+
+
+        # logits, target = model(data)
+        #
+        # predictions = logits.argmax(dim=1)
+        #
+        # print(logits.shape)
+        # print(target.shape)
+        # print(predictions.shape)
+        #
+        # accuracy = (predictions == target).sum()/target.shape[0]
+        # print(accuracy)
         raise()
 
-                # Need to append data that is tagged by batch number, graph number, target node,
-                #                                       path length, prediction
+        # Need to append data that is tagged by batch number, graph number, target node,
+        #                                       path length, prediction
 
 
-        dump_pkl(entries, file_name=file_name)
-        print("Content dumped in pkl file: ", file_name)

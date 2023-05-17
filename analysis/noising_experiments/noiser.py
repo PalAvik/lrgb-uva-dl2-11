@@ -8,14 +8,10 @@ from graphgps.loader.dataset.voc_superpixels import VOCSuperpixels
 from functools import cached_property
 
 
-class NoiserExperiment:
+class NoiserHelper:
 
-    def __init__(self, dataset, model: torch.nn.Module):
+    def __init__(self, dataset):
         self.dataset = dataset
-
-        # Each experiment outcome should be a pandas df with the outcome of that experiment
-        self._experiment_outcomes = []
-        self.model = model
 
     @cached_property
     def mean_of_means(self):
@@ -68,7 +64,6 @@ class OneGraphNoise:
         return path_length_buckets
 
     def obtain_modified_data(self,
-
                              path_length_buckets: dict,
                              path_length: int,
                              replacement_value: torch.Tensor,
@@ -76,15 +71,42 @@ class OneGraphNoise:
                              ):
 
         # TODO add in random sampling of the path length buckts
+        if replacement_value:
+            new_data = self.data.clone()
+            indices = path_length_buckets[path_length]
+            if down_sampling:
+                assert type(down_sampling) == float
+                down_sampling_size = int(down_sampling*len(indices))
+                indices = np.random.choice(indices, replace=False, size=down_sampling_size)
 
-        new_data = self.data.clone()
-        indices = path_length_buckets[path_length]
-        if down_sampling:
-            assert type(down_sampling) == float
-            down_sampling_size = int(down_sampling*len(indices))
-            indices = np.random.choice(indices, replace=False, size=down_sampling_size)
+            for index in indices:
+                new_data.x[index, :] = replacement_value # can swap this bit out based on what we want to do
 
-        for index in indices:
-            new_data.x[index, :] = replacement_value # can swap this bit out based on what we want to do
+            return new_data
+        else:
+            return self.data
 
-        return new_data
+
+
+    def get_result_for_all_path_lengths(self, target_node_label, replacement_value):
+        """Returns modified """
+        buckets = self.get_path_length_buckets(target_node_label)
+
+        result = {}
+        for path_length in buckets.keys():
+            modified_data = self.obtain_modified_data(buckets,
+                                                      path_length,
+                                                      replacement_value=replacement_value)
+
+            logits, label = self.model(modified_data)
+            predictions = logits.argmax(dim=1)
+
+            correct_prediction = (predictions == label)[target_node_label]
+            result = path_length[correct_prediction]
+
+        return result
+
+
+
+
+
