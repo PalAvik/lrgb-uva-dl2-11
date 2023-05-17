@@ -110,7 +110,7 @@ class OneGraphNoise:
         return result
 
     def get_results_for_all_target_nodes(self, replacement_value):
-        num_nodes = self.graph.number_of_nodes()
+        num_nodes = self.all_shortest_paths.shape[0]
 
         all_results = []
         for node_label in tqdm(range(num_nodes)):
