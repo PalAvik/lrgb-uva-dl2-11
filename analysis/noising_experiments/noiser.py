@@ -91,9 +91,11 @@ class OneGraphNoise:
         buckets = self.get_path_length_buckets(target_node_label)
 
         result = np.zeros(self.maximum_path_length)
-        result = result.astype(bool)
+        result[:] = np.nan
 
-        for path_length in range(self.maximum_path_length):
+        # NOTE: slight trap here where we only iterate over the available keys
+        # Therefore, we expect the possible outcomes to be true/false/nan
+        for path_length in buckets.keys():
             modified_data = self.obtain_modified_data(buckets,
                                                       path_length,
                                                       replacement_value=replacement_value)
@@ -102,7 +104,7 @@ class OneGraphNoise:
             predictions = logits.argmax(dim=1)
 
             correct_prediction = (predictions == label)[target_node_label]
-            result[path_length] = correct_prediction.item()
+            result[path_length] = int(correct_prediction.item())
 
         return result
 
