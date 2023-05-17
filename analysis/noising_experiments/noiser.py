@@ -6,6 +6,7 @@ import pandas as pd
 
 from graphgps.loader.dataset.voc_superpixels import VOCSuperpixels
 from functools import cached_property
+from tqdm import tqdm
 
 
 class NoiserHelper:
@@ -112,7 +113,7 @@ class OneGraphNoise:
         num_nodes = self.graph.number_of_nodes()
 
         all_results = []
-        for node_label in range(num_nodes):
+        for node_label in tqdm(range(num_nodes)):
             node_results = self.get_result_for_all_path_lengths(target_node_label=node_label,
                                                                 replacement_value=replacement_value
                                                                 )

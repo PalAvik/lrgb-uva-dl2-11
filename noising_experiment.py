@@ -149,7 +149,7 @@ if __name__ == '__main__':
             results_per_graph.append(df)
 
         final = pd.concat(results_per_graph)
-        final.to_pickle('test_noising_experiment.pickle')
+        final.to_pickle('noising_experiment.pickle')
 
 
 
