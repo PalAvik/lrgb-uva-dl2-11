@@ -108,10 +108,8 @@ class OneGraphNoise:
 
         return result
 
-    def get_results_for_all_target_nodes(self, replacement_value, T=5):
-        # num_nodes = self.graph.number_of_nodes()
-        # just for testing!
-        num_nodes = T
+    def get_results_for_all_target_nodes(self, replacement_value):
+        num_nodes = self.graph.number_of_nodes()
 
         all_results = []
         for node_label in range(num_nodes):

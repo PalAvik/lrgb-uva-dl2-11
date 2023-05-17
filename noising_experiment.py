@@ -114,7 +114,6 @@ if __name__ == '__main__':
 
     with torch.no_grad():
         N = 1 # number of graphs to pull data for
-        T = 5
 
         # Need to append data that is tagged by batch number, graph number, target node,
         #                                       path length, prediction
@@ -128,7 +127,7 @@ if __name__ == '__main__':
             helper = NoiserHelper(dataset)
             noiser = OneGraphNoise(data, model)
 
-            result_new = noiser.get_results_for_all_target_nodes(replacement_value=helper.mean_of_means, T=T)
+            result_new = noiser.get_results_for_all_target_nodes(replacement_value=helper.mean_of_means)
 
             ## Get result for vanilla model (i.e. not fudged)
             logits, target = model(data)
