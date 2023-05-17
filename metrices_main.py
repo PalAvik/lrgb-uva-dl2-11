@@ -5,6 +5,7 @@ import pickle
 import torch
 import logging
 import copy
+from tqdm import tqdm
 import graphgps  # noqa, register custom modules
 
 from torch_geometric.graphgym.cmd_args import parse_args
@@ -25,7 +26,7 @@ from torch_geometric.graphgym.loss import compute_loss
 from sklearn.metrics import accuracy_score, f1_score
 from torch_geometric import seed_everything
 import torch.nn.functional as F
-
+from graphgps.custom.egnn import custom_egnn
 from graphgps.finetuning import load_pretrained_model_cfg, \
     init_model_from_pretrained
 from graphgps.logger import create_logger
@@ -54,14 +55,6 @@ def dump_pkl(content, file_name):
     pickle.dump(content, file)
     file.close()
 
-path = "/home/lcur1702/lrgb_madhura/lrgb-uva-dl2-11/pascal_metrics.pkl"
-
-file = open(path, 'rb')
-data = pickle.load(file)
-print(len(data))              
-file.close()
-
-
 
 if __name__ == '__main__':
     # Load cmd line args
@@ -83,20 +76,33 @@ if __name__ == '__main__':
         # Set machine learning pipeline
         loaders = create_loader()
         loggers = create_logger()
-        model = create_model()
+        
         entries = []
         file_name = "pascal_metrics_{}.pkl".format(cfg.model.type)
-        if cfg.train.finetune: 
-            model = init_model_from_pretrained(model, cfg.train.finetune,  cfg.train.freeze_pretrained)
+        if cfg.train.finetune:    
+            if cfg.model.type == 'enn':
+                model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,device=cfg.device) 
+            else:
+                model = create_model()
+                model = init_model_from_pretrained(model, cfg.train.finetune,  cfg.train.freeze_pretrained)   
             
             print(model)      
                                    
-            for batch in loaders[0]:
+            for batch in tqdm(loaders[0]):
                 batch.split = "test"
                 # if j == 25: break
                 start_idx = 0 
                 batch = batch.to(torch.device(cfg.device))
-                pred, true = model(batch)
+                if cfg.model.type == 'enn':
+                    nodes = batch["x"][:,:12].to(torch.device(cfg.device))
+                    positions = batch["x"][:,12:].to(torch.device(cfg.device))
+                    edges = batch["edge_index"].to(torch.device(cfg.device))
+                    edge_attr = batch["edge_attr"].to(torch.device(cfg.device))
+                    true = batch["y"]
+                    pred = model(h0=nodes, x=positions, edges=edges, edge_attr=edge_attr)
+                else:
+                    pred, true = model(batch)
+
                 _ , pred_score = compute_loss(pred, true)
                 pred_int = pred_score.max(dim=1)[1]
                 
@@ -123,10 +129,10 @@ if __name__ == '__main__':
                     "edge_attr": graph.edge_attr.cpu().detach().numpy(),
                     "edges" : graph.edge_index.cpu().detach().numpy(),
                      }
-                    
+                    #  print("dict_", dict_)
                      entries.append(dict_)
                      start_idx = n_nodes
-                print("batch done")
+                # print("batch done")
                 # j +=  1
             
 
