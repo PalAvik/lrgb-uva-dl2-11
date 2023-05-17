@@ -80,7 +80,8 @@ if __name__ == '__main__':
         elif cfg.model.type == 'enn':
             model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,
                                      device=cfg.device)
-        is_graphgym = False
+            is_graphgym = False
+
         else:
             model = create_model()
             is_graphgym = True
@@ -134,8 +135,6 @@ if __name__ == '__main__':
                     input_ = (nodes, edges, edge_attr, EigVals, EigVecs)
                 else:
                     input_ = (nodes, edges, edge_attr)
-
-                
 
         dump_pkl(entries, file_name=file_name)
         print("Content dumped in pkl file: ", file_name)
