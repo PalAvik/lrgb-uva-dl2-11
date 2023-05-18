@@ -128,5 +128,5 @@ def process_all_graphs(pickle_file, normalise=False):
 def plot_mean_influence_by_distance(df, ax, label):
     per_distance_per_source = df.groupby(['graph_distance', 'target', 'graph_id'])['influence_score'].sum()
     expected_influence_per_distance = per_distance_per_source.groupby('graph_distance').mean()
-    expected_influence_per_distance.plot(ax=ax, label=label)
+    expected_influence_per_distance.plot(ax=ax, label=label, drawstyle='steps-mid')
 
