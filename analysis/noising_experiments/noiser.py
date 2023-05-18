@@ -1,12 +1,15 @@
 import torch
 import torch_geometric as tg
+from functools import cached_property
+from tqdm import tqdm
+
+import torch_geometric as tg
 import networkx as nx
 import numpy as np
 import pandas as pd
-
-from graphgps.loader.dataset.voc_superpixels import VOCSuperpixels
 from functools import cached_property
-from tqdm import tqdm
+
+from ..noising_experiments.noise_utils import get_predictions
 
 
 class NoiserHelper:
@@ -18,12 +21,14 @@ class NoiserHelper:
     def mean_of_means(self):
         """ Gives mean input feature values across the entire graph"""
         mean_of_means = []
+
         for d in self.dataset:
+            # print(d.size())
             graph_mean = d.x.mean(dim=0)
             mean_of_means.append(graph_mean)
         mean_of_means = torch.row_stack(mean_of_means)
         mean_of_means = mean_of_means.mean(0)
-
+ 
         return mean_of_means
 
     @staticmethod
@@ -35,7 +40,6 @@ class NoiserHelper:
     def mean_of_input_features(data: tg.data.Data):
         mean_of_input = data.x.mean(dim=0)
         return mean_of_input
-
 
 class OneGraphNoise:
 
@@ -90,7 +94,6 @@ class OneGraphNoise:
 
     def get_result_for_all_path_lengths(self, target_node_label, replacement_value):
         buckets = self.get_path_length_buckets(target_node_label)
-
         result = np.zeros(self.maximum_path_length)
         result[:] = np.nan
 
@@ -102,12 +105,9 @@ class OneGraphNoise:
                                                       replacement_value=replacement_value
                                                       )
 
-            logits, label = self.model(modified_data)
-            predictions = logits.argmax(dim=1)
+            predictions = get_predictions(modified_data, self.model)
             prediction = predictions[target_node_label].item()
-
             result[path_length - 1] = prediction
-
         return result
 
     def get_results_for_all_target_nodes(self, replacement_value):
@@ -121,8 +121,6 @@ class OneGraphNoise:
             all_results.append(node_results)
 
         return np.row_stack(all_results)
-
-
 
 
 
