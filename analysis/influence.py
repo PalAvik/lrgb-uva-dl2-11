@@ -92,8 +92,8 @@ def add_graph_distances_to_df(influence_df, graph):
 def raw_data_to_df(influence_matrix, position_array, edge_array, normalise):
 
     if normalise:
-        # print('Normalising influence matrix')
         influence_matrix = row_normalise(influence_matrix)
+        assert np.allclose(influence_matrix.sum(axis=1), 1.0)
 
     influence_df = convert_arrays_to_df(influence_matrix, position_array)
     influence_df = calculate_distance(influence_df)
@@ -126,7 +126,7 @@ def process_all_graphs(pickle_file, normalise=False):
 
 
 def plot_mean_influence_by_distance(df, ax, label):
-    per_distance_per_source = df.groupby(['graph_distance', 'source'])['influence_score'].sum()
+    per_distance_per_source = df.groupby(['graph_distance', 'target', 'graph_id'])['influence_score'].sum()
     expected_influence_per_distance = per_distance_per_source.groupby('graph_distance').mean()
-    expected_influence_per_distance.plot(ax=ax, label=label)
+    expected_influence_per_distance.plot(ax=ax, label=label, drawstyle='steps-mid')
 
