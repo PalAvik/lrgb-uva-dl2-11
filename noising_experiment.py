@@ -16,9 +16,13 @@ import os
 
 import pandas as pd
 import torch
-
 import graphgps  # noqa, register custom modules
 
+import torch_geometric as tg
+import networkx as nx
+import numpy as np
+import pandas as pd
+from functools import cached_property
 from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric.graphgym.config import (cfg, dump_cfg,
                                              set_cfg, load_cfg,
@@ -26,17 +30,18 @@ from torch_geometric.graphgym.config import (cfg, dump_cfg,
 from torch_geometric.graphgym.loader import create_loader
 
 from torch_geometric.graphgym.model_builder import create_model
-
+from torch_geometric.graphgym.loss import compute_loss
 from graphgps.finetuning import load_pretrained_model_cfg, \
     init_model_from_pretrained
 from graphgps.logger import create_logger
 from graphgps.custom.egnn import custom_egnn
 from graphgps.loader.dataset.voc_superpixels import VOCSuperpixels
-
+from tqdm import tqdm
 import pickle
+from analysis.noising_experiments.noise_utils import get_predictions
 
+from analysis.noising_experiments.noiser import NoiserHelper, OneGraphNoise
 
-from analysis.noising_experiments.noiser import OneGraphNoise, NoiserHelper
 
 
 def custom_set_out_dir(cfg, cfg_fname, name_tag):
@@ -60,6 +65,7 @@ def dump_pkl(content, file_name):
     file.close()
 
 
+
 if __name__ == '__main__':
     # Load cmd line args
     args = parse_args()
@@ -70,39 +76,25 @@ if __name__ == '__main__':
     dump_cfg(cfg)
     # Set Pytorch environment
     torch.set_num_threads(cfg.num_threads)
-
-
     print('Loading Model')
     assert cfg.train.finetune
 
     cfg = load_pretrained_model_cfg(cfg)
     loggers = create_logger()
     loaders = create_loader()
-
+    file_name = f"noising_exp_{cfg.model.type}.pkl"
     if cfg.model.type == 'egnn':
         model = custom_egnn.EGNN2(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,
                                   device=cfg.device)
-        is_graphgym = False
     elif cfg.model.type == 'enn':
         model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,
                                  device=cfg.device)
-        is_graphgym = False
-
     else:
         model = create_model()
-        is_graphgym = True
-
-    model = init_model_from_pretrained(model,
-                                        cfg.train.finetune,
-                                        cfg.train.freeze_pretrained,
-                                        device='cpu'
-                                       )
-
-    model.eval()
-
-    entries = []
-    file_name = f"inf_scores_{cfg.model.type}.pkl"
-
+        # !! Nik update this line to the extra param of device on YOUR LOCAL BRANCH. !!
+        model = init_model_from_pretrained(model, cfg.train.finetune,  cfg.train.freeze_pretrained) 
+    
+    print(model)
     dataset = VOCSuperpixels(root='datasets/VOCSuperpixels',
                              slic_compactness=10,
                              name='edge_wt_only_coord',
@@ -110,46 +102,36 @@ if __name__ == '__main__':
 
     print('Dataset loaded')
 
+    N = 20
+    helper = NoiserHelper(dataset)
+    results_per_graph = []
+    for graph_id in range(N):
+        data = dataset[graph_id]
+        data = data.to(torch.device(cfg.device))
+        data = dataset[graph_id]
+        noiser = OneGraphNoise(data, model)
+        result_new = noiser.get_results_for_all_target_nodes(replacement_value=helper.mean_of_means)
+        
+        predictions = get_predictions(data, model)
 
-    with torch.no_grad():
-        N = 1 # number of graphs to pull data for
 
-        # Need to append data that is tagged by batch number, graph number, target node,
-        #                                       path length, prediction
-
-        results_per_graph = []
-
-        for graph_id in range(N):
-
-            data = dataset[graph_id]
-
-            helper = NoiserHelper(dataset)
-            noiser = OneGraphNoise(data, model)
-
-            result_new = noiser.get_results_for_all_target_nodes(replacement_value=helper.mean_of_means)
-
-            ## Get result for vanilla model (i.e. not fudged)
-            logits, target = model(data)
-            predictions = logits.argmax(dim=1)
-
-            # Write all data for this graph
-            out_frames = []
-            for target_node in range(result_new.shape[0]):
-                row = {'graph_id': [graph_id],
-                       'target_node': [target_node],
-                       'truth': [data.y[target_node].item()],
-                       'standard_prediction': [predictions[target_node].item()]
-                       }
-                for path_length in range(result_new.shape[1]):
-                    row[f"path_length_{path_length}_prediction"] = [result_new[target_node, path_length]]
-                row = pd.DataFrame.from_dict(row)
-                out_frames.append(row)
-            df = pd.concat(out_frames)
-            results_per_graph.append(df)
-
-        final = pd.concat(results_per_graph)
-        final.to_pickle('noising_experiment_gcn_1_graph.pickle')
-
+        out_frames = []
+        for target_node in range(result_new.shape[0]):
+            row = {'graph_id': [graph_id],
+                    'target_node': [target_node],
+                    'truth': [data.y[target_node].item()],
+                    'standard_prediction': [predictions[target_node].item()]
+                    }
+            for path_length in range(result_new.shape[1]):
+                row[f"path_length_{path_length}_prediction"] = [result_new[target_node, path_length]]
+            row = pd.DataFrame.from_dict(row)
+            out_frames.append(row)
+        df = pd.concat(out_frames)
+        print(results_per_graph)
+        results_per_graph.append(df)
+    
+    dump_pkl(results_per_graph, file_name=file_name)
+    print("Content dumped in pkl file: ", file_name)
 
 
 
