@@ -118,7 +118,7 @@ class E_GCL_mask2(E_GCL):
         self.act_fn = act_fn
 
     def coord_model(self, coord, edge_index, coord_diff, edge_feat, x_weights):
-        row, col = edge_index
+        row, col = edge_index.to(torch.int64)
         trans = coord_diff * self.coord_mlp(edge_feat) 
         agg = unsorted_segment_sum(trans, row, num_segments=coord.size(0))
         coord_update = torch.div(agg, x_weights)

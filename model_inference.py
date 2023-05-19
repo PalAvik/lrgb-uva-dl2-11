@@ -155,8 +155,13 @@ if __name__ == '__main__':
                     edges.requires_grad_(False)
                     edge_attr.requires_grad_(True)
 
-                    if cfg.model.type in ['enn', 'egnn']:
+                    if cfg.model.type == 'enn':
                         input_ = (nodes, positions, edges, edge_attr)
+                    elif cfg.model.type == 'egnn':
+                        n_nodes_arr = [graph.x.size(0)]
+                        tensor_n_nodes = torch.tensor(n_nodes_arr)
+                        t_n = tensor_n_nodes.repeat_interleave(tensor_n_nodes).unsqueeze(1).to(torch.device(cfg.device))
+                        input_ = (nodes, positions, edges, edge_attr, t_n.float())
                     elif cfg.model.type == 'GPSModel':
                         EigVals = graph.EigVals.to(torch.device(cfg.device))
                         EigVecs = graph.EigVecs.to(torch.device(cfg.device))
