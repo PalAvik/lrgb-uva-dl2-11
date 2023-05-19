@@ -91,8 +91,8 @@ if __name__ == '__main__':
                                  device=cfg.device)
     else:
         model = create_model()
-        # !! Nik update this line to the extra param of device on YOUR LOCAL BRANCH. !!
-        model = init_model_from_pretrained(model, cfg.train.finetune,  cfg.train.freeze_pretrained) 
+    
+    model = init_model_from_pretrained(model, cfg.train.finetune,  cfg.train.freeze_pretrained) 
     
     print(model)
     dataset = VOCSuperpixels(root='datasets/VOCSuperpixels',
