@@ -86,7 +86,8 @@ if __name__ == '__main__':
                 model = custom_egnn.EGNN2(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,device=cfg.device)
             else:
                 model = create_model()
-                model = init_model_from_pretrained(model, cfg.train.finetune,  cfg.train.freeze_pretrained)   
+            
+            model = init_model_from_pretrained(model, cfg.train.finetune,  cfg.train.freeze_pretrained)   
             
             print(model)      
                                    
@@ -113,7 +114,6 @@ if __name__ == '__main__':
 
                 _ , pred_score = compute_loss(pred, true)
                 pred_int = pred_score.max(dim=1)[1]
-                
                 for i in range(batch.num_graphs):
                      graph = batch[i]
                      n_nodes = graph.x.size(0)
