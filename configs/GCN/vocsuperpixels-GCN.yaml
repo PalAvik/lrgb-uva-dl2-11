@@ -15,6 +15,7 @@ dataset:
   node_encoder_bn: False
   edge_encoder: False
 train:
+  finetune: C:\Users\niksm\Documents\CodeForUni\lrgb-uva-dl2-11\results\vocsuperpixels-GCN
   mode: custom
   batch_size: 32   
   eval_period: 1

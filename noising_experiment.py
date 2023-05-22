@@ -70,9 +70,9 @@ def noiser_parse_arg() -> argparse.Namespace:
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
-    parser.add_argument('--device', type=str, default='cuda', help='torch device')
+    parser.add_argument('--device', type=str, default='cpu', help='torch device')
     parser.add_argument('--num_graphs', type=int, default=1)
-    parser.add_argument('--output_fie', type=str, required=True)
+    parser.add_argument('--output_file', type=str, required=True)
 
     ### What is the point of this??
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
@@ -85,7 +85,7 @@ def noiser_parse_arg() -> argparse.Namespace:
 
 if __name__ == '__main__':
     # Load cmd line args
-    args = parse_args()
+    args = noiser_parse_arg()
     # Load config file
     set_cfg(cfg)
     load_cfg(cfg, args)
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     # Set Pytorch environment
     torch.set_num_threads(cfg.num_threads)
 
-
+    cfg.device = args.device
     print('Loading Model')
     assert cfg.train.finetune
 
