@@ -13,6 +13,7 @@ python model_inference.py --cfg configs/GCN/vocsuperpixels-GCN.yaml device cpu
 """
 
 import os
+import argparse
 
 import pandas as pd
 import torch
@@ -59,6 +60,27 @@ def dump_pkl(content, file_name):
     pickle.dump(content, file)
     file.close()
 
+def noiser_parse_arg() -> argparse.Namespace:
+    r"""Parses the command line arguments."""
+    parser = argparse.ArgumentParser(description='GraphGym')
+
+    parser.add_argument('--cfg', dest='cfg_file', type=str, required=True,
+                        help='The configuration file path.')
+    parser.add_argument('--repeat', type=int, default=1,
+                        help='The number of repeated jobs.')
+    parser.add_argument('--mark_done', action='store_true',
+                        help='Mark yaml as done after a job has finished.')
+    parser.add_argument('--device', type=str, default='cuda', help='torch device')
+    parser.add_argument('--num_graphs', type=int, default=1)
+
+    ### What is the point of this??
+    parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
+                        help='See graphgym/config.py for remaining options.')
+
+
+    return parser.parse_args()
+
+
 
 if __name__ == '__main__':
     # Load cmd line args
@@ -81,11 +103,11 @@ if __name__ == '__main__':
 
     if cfg.model.type == 'egnn':
         model = custom_egnn.EGNN2(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,
-                                  device=cfg.device)
+                                  device=args.device)
         is_graphgym = False
     elif cfg.model.type == 'enn':
         model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,
-                                 device=cfg.device)
+                                 device=args.device)
         is_graphgym = False
 
     else:
@@ -95,7 +117,7 @@ if __name__ == '__main__':
     model = init_model_from_pretrained(model,
                                         cfg.train.finetune,
                                         cfg.train.freeze_pretrained,
-                                        device='cpu'
+                                        device=args.device
                                        )
 
     model.eval()
@@ -119,7 +141,7 @@ if __name__ == '__main__':
 
         results_per_graph = []
 
-        for graph_id in range(N):
+        for graph_id in range(args.num_graphs):
 
             data = dataset[graph_id]
 
