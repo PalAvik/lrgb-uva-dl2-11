@@ -134,6 +134,7 @@ if __name__ == '__main__':
 
     with torch.no_grad():
         results_per_graph = []
+        helper = NoiserHelper(dataset)
 
         for graph_id in range(args.num_graphs):
 
@@ -146,7 +147,7 @@ if __name__ == '__main__':
                 uses_pe = True
 
 
-            helper = NoiserHelper(dataset)
+
             noiser = OneGraphNoise(data, model)
 
             result_new = noiser.get_results_for_all_target_nodes(replacement_value=helper.mean_of_means)
