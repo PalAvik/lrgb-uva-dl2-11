@@ -144,6 +144,11 @@ class COCOSuperpixels(InMemoryDataset):
                 graphs = pickle.load(f)
             
             indices = range(len(graphs))
+            print("Initial size:", len(indices))
+            perm = torch.randperm(len(indices))
+            small_size = int(0.1*len(indices))
+            indices = perm[:small_size]
+            print("Subset Initial size:", len(indices))
 
             pbar = tqdm(total=len(indices))
             pbar.set_description(f'Processing {split} dataset')
