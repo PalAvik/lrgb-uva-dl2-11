@@ -27,6 +27,7 @@ posenc_LapPE:
   layers: 2
   raw_norm_type: none
 train:
+  finetune: C:\Users\niksm\Documents\CodeForUni\lrgb-uva-dl2-11\results\vocsuperpixels-Transformer+LapPE
   mode: custom
   batch_size: 32
   eval_period: 1
