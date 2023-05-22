@@ -135,11 +135,6 @@ if __name__ == '__main__':
 
 
     with torch.no_grad():
-        N = 1 # number of graphs to pull data for
-
-        # Need to append data that is tagged by batch number, graph number, target node,
-        #                                       path length, prediction
-
         results_per_graph = []
 
         for graph_id in range(args.num_graphs):
@@ -171,7 +166,7 @@ if __name__ == '__main__':
             results_per_graph.append(df)
 
         final = pd.concat(results_per_graph)
-        final.to_pickle('noising_experiment_gcn_1_graph.pickle')
+        final.to_pickle(args.output_file)
 
 
 
