@@ -36,7 +36,7 @@ from graphgps.loader.dataset.voc_superpixels import VOCSuperpixels
 
 import pickle
 
-
+from graphgps.transform.posenc_stats import compute_posenc_stats
 from analysis.noising_experiments.noiser import OneGraphNoise, NoiserHelper
 
 
@@ -124,8 +124,6 @@ if __name__ == '__main__':
     model.eval()
 
     entries = []
-    file_name = f"inf_scores_{cfg.model.type}.pkl"
-
     dataset = VOCSuperpixels(root='datasets/VOCSuperpixels',
                              slic_compactness=10,
                              name='edge_wt_only_coord',
@@ -140,6 +138,13 @@ if __name__ == '__main__':
         for graph_id in range(args.num_graphs):
 
             data = dataset[graph_id]
+            if cfg.posenc_LapPE.enable == True:
+                data = compute_posenc_stats(data,
+                                             ['LapPE'],
+                                             is_undirected=True,
+                                             cfg=cfg)
+                uses_pe = True
+
 
             helper = NoiserHelper(dataset)
             noiser = OneGraphNoise(data, model)
