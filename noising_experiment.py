@@ -72,6 +72,7 @@ def noiser_parse_arg() -> argparse.Namespace:
                         help='Mark yaml as done after a job has finished.')
     parser.add_argument('--device', type=str, default='cuda', help='torch device')
     parser.add_argument('--num_graphs', type=int, default=1)
+    parser.add_argument('--output_fie', type=str, required=True)
 
     ### What is the point of this??
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
