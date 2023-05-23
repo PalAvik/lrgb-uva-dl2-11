@@ -2,12 +2,12 @@ import os
 import os.path as osp
 import shutil
 import pickle
-
+import numpy as np
 import torch
 from tqdm import tqdm
 from torch_geometric.data import (InMemoryDataset, Data, download_url,
                                   extract_zip)
-
+from sklearn.model_selection import train_test_split
 
 class COCOSuperpixels(InMemoryDataset):
     r"""The COCOSuperpixels dataset which contains image superpixels and a semantic segmentation label
@@ -145,10 +145,13 @@ class COCOSuperpixels(InMemoryDataset):
             
             indices = range(len(graphs))
             print("Initial size:", len(indices))
-            perm = torch.randperm(len(indices))
-            small_size = int(0.1*len(indices))
-            indices = perm[:small_size]
-            print("Subset Initial size:", len(indices))
+            small_size = int(0.3*len(indices))
+            indices =indices[:small_size]
+            # y = np.array([_[3] for _ in graphs])
+            # # print(y)
+            # # train_indices, _ = train_test_split(indices, test_size=0.7, stratify=y)
+            # indices = train_indices
+            print("split size for split :", len(indices), split)            
 
             pbar = tqdm(total=len(indices))
             pbar.set_description(f'Processing {split} dataset')
