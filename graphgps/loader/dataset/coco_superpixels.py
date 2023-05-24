@@ -188,7 +188,7 @@ class COCOSuperpixels(InMemoryDataset):
                     data = self.pre_transform(data)
                 
                 y_list = y.tolist()
-                condn = [_ for _ in y_list if 0 <= _ <= 19 or _ == 81]
+                condn = [_ for _ in y_list if 0 <= _ <= 20]
                 if y.size(0) == len(condn):
                     #  print("the graph will get appended")
                      data_list.append(data)
