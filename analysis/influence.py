@@ -111,12 +111,15 @@ def process_all_graphs(pickle_file, normalise=False):
 
     dfs = []
     for i,graph in enumerate(all_graphs):
-        influence_df = raw_data_to_df(graph['influence_score'],
-                                      graph['xpos'],
-                                      graph['edges'],
-                                      normalise=normalise)
-        influence_df['graph_id'] = i
-        dfs.append(influence_df)
+        try:
+            influence_df = raw_data_to_df(graph['influence_score'],
+                                          graph['xpos'],
+                                          graph['edges'],
+                                          normalise=normalise)
+            influence_df['graph_id'] = i
+            dfs.append(influence_df)
+        except Exception as error: # bypass faulty graphs (if any)
+            pass
 
     final_df = pd.concat(dfs)
     final_df = final_df.sort_values(by='influence_score')
