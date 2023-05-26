@@ -5,8 +5,8 @@ from e3nn.nn import BatchNorm
 import numpy as np
 from e3nn.o3 import Irreps
 
-from o3_building_blocks import O3TensorProduct, O3TensorProductSwishGate
-from instance_norm import InstanceNorm
+from graphgps.custom.segnn.o3_building_blocks import O3TensorProduct, O3TensorProductSwishGate
+from graphgps.custom.segnn.instance_norm import InstanceNorm
 
 
 class SEGNN(nn.Module):

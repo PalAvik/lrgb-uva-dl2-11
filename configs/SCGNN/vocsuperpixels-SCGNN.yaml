@@ -16,7 +16,8 @@ dataset:
   edge_encoder: False
 train:
   mode: custom
-  finetune: /home/lcur1701/LRGB_KAI/results/vocsuperpixels-GCN
+  finetune: results/vocsuperpixels-SCGNN
+  freeze_pretrained: True
   batch_size: 32   
   eval_period: 1
   ckpt_period: 100

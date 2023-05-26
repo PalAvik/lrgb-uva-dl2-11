@@ -69,6 +69,7 @@ def get_influence_score(node_jacobian, adj_mat, positions):
     inf_score = torch.zeros((total_nodes, total_nodes))
     distances = torch.zeros((total_nodes, total_nodes))
 
+    print("NODE JACOBIAN SIZE: ", node_jacobian.size())
     node_jacobian = node_jacobian.sum((1, 3))
     node_jacobian = node_jacobian @ adj_mat
 
@@ -176,7 +177,7 @@ if __name__ == '__main__':
                         nodes = graph.x[:, :12].to(torch.device(cfg.device))
                     elif cfg.model.type in ['scgnn']:
                         nodes_d = graph.x.to(torch.device(cfg.device))
-                        extra=torch.zeros(nodes_d.shape[0],1)
+                        extra=torch.zeros(nodes_d.shape[0],1).to(torch.device(cfg.device))
                         nodes=torch.cat([nodes_d,extra],1)
 
                     else:
@@ -212,16 +213,21 @@ if __name__ == '__main__':
                     elif cfg.model.type=='scgnn':
                         transform = O3Transform(3)
                         graph_Z=Data(x=nodes,edge_index=edges, pos=positions)
-                        batchz = torch.arange(0, 1)
+                        batchz = torch.arange(0, 1).to(torch.device(cfg.device))
                         n_nodes=nodes.shape[0]
                         graph_Z.batch = batchz.repeat_interleave(n_nodes).long()
                         
                         transform = O3Transform(3)
                         graph_Z = transform(graph_Z)
 
-                        input_ = (graph_Z.x, graph_Z.pos, graph_Z.edge_index,graph_Z.node_attr,graph_Z.edge_attr) 
-
-                        
+                        input_ = (
+                            graph_Z.x, 
+                            graph_Z.pos, 
+                            graph_Z.edge_index,
+                            graph_Z.node_attr,
+                            graph_Z.edge_attr,
+                            graph_Z.batch.float()
+                            )
 
                         is_steer=True
                     else:
