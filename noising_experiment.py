@@ -125,7 +125,7 @@ if __name__ == '__main__':
     model = init_model_from_pretrained(model,
                                         cfg.train.finetune,
                                         cfg.train.freeze_pretrained,
-                                        device=args.device
+
                                        )
 
     model.eval()
