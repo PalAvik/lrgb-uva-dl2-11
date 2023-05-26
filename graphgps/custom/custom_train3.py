@@ -2,21 +2,25 @@ import numpy as np
 import torch
 import time
 import logging
+import numpy as np
 import os
 import glob
 import os.path as osp
 from typing import  List, Union
-
 from torch_geometric.graphgym.config import cfg
 from torch_geometric.graphgym.loss import compute_loss
 from torch_geometric.graphgym.utils.epoch import is_eval_epoch, is_ckpt_epoch
 from torch_geometric.graphgym.checkpoint import load_ckpt, save_ckpt, \
     clean_ckpt
-
+from e3nn.o3 import Irreps
+from e3nn.o3 import Irreps, spherical_harmonics
+from torch_geometric.data import Data
 from torch_geometric.graphgym.register import register_train
 
 from graphgps.loss.subtoken_prediction_loss import subtoken_cross_entropy
 from graphgps.utils import cfg_to_dict, flatten_dict, make_wandb_name
+dtype = torch.float32
+from torch_scatter import scatter
 
 def get_ckpt_epochs() -> List[int]:
     paths = glob.glob(get_ckpt_path('*'))
@@ -34,38 +38,96 @@ def clean_ckpt(best_epoch):
     for epoch in get_ckpt_epochs()[:-1]:
         if epoch != best_epoch:
           os.remove(get_ckpt_path(epoch))
+ 
+class O3Transform:
+    def __init__(self, lmax_attr):
+        self.attr_irreps = Irreps.spherical_harmonics(lmax_attr)
 
-def train_epoch(logger, loader, model, optimizer, scheduler, batch_accumulation):
+    def __call__(self, graph):
+        pos = graph.pos #batch X 3
+#         vel = graph.vel
+#         charges = graph.charges
+
+#         prod_charges = charges[graph.edge_index[0]] * charges[graph.edge_index[1]]
+        rel_pos = pos[graph.edge_index[0].long()] - pos[graph.edge_index[1].long()]
+#         edge_dist = torch.sqrt(rel_pos.pow(2).sum(1, keepdims=True))
+
+        graph.edge_attr = spherical_harmonics(self.attr_irreps, rel_pos, normalize=True, normalization='integral')
+#         vel_embedding = spherical_harmonics(self.attr_irreps, vel, normalize=True, normalization='integral')
+        dm = scatter(graph.edge_attr, graph.edge_index[1].to(torch.int64), dim=0, reduce="mean") 
+        empty=torch.zeros(graph.x.shape[0],16).to(cfg.device)
+        empty[0:dm.shape[0],:]=dm
+
+
+        graph.node_attr=empty
+        # print("node_attr",graph.node_attr.shape,graph.edge_attr.shape,graph.edge_index[1].shape)
+
+
+#         vel_abs = torch.sqrt(vel.pow(2).sum(1, keepdims=True))
+#         mean_pos = pos.mean(1, keepdims=True)
+
+        #torch.cat((pos - mean_pos, vel, vel_abs), 1)
+        graph.additional_message_features=None
+#         graph.additional_message_features = torch.cat((edge_dist, prod_charges), dim=-1)
+        return graph
+
+
+
+
+
+def train_epoch(logger, loader, model, optimizer, scheduler):
     model.train()
-    optimizer.zero_grad()
     time_start = time.time()
-    for iter, batch in enumerate(loader):
+    total_loss=0
+    for batch in loader:
+     
         batch.split = 'train'
+        optimizer.zero_grad()
+        extra=torch.zeros(batch["x"].shape[0],1)
+        batch["x"]=torch.cat([batch["x"],extra],1)
+        # print("SIZEEEEEE",batch["x"].shape,batch.num_graphs)
         batch.to(torch.device(cfg.device))
-        pred, true = model(batch)
-        if cfg.dataset.name == 'ogbg-code2':
-            loss, pred_score = subtoken_cross_entropy(pred, true)
-            _true = true
-            _pred = pred_score
-        else:
-            loss, pred_score = compute_loss(pred, true)
-            _true = true.detach().to('cpu', non_blocking=True)
-            _pred = pred_score.detach().to('cpu', non_blocking=True)
+
+        
+        nodes = batch["x"][:,:].to(torch.device(cfg.device))
+        positions = batch["x"][:,12:].to(torch.device(cfg.device))
+        edges = batch["edge_index"].to(torch.device(cfg.device))
+        edge_attr = batch["edge_attr"].to(torch.device(cfg.device))
+        n_nodes = batch["x"][:,:].size(0)
+        n_edges = edges.size(1)
+  
+        true = batch["y"]
+        batch_size=batch.num_graphs
+        
+        
+        
+        graph_Z=Data(x=nodes,edge_index=edges, pos=positions,  y=true)
+        # graph_Z.x=nodes
+        
+        batchz = torch.arange(0, 1)
+        graph_Z.batch = batchz.repeat_interleave(n_nodes).long()
+        # print("VVVV",graph_Z.batch.shape,n_nodes,batch_size,len(loader))
+        
+        transform = O3Transform(3)
+        
+        graph_Z = transform(graph_Z)
+        
+        pred = model(graph_Z.to(torch.device(cfg.device)))
+        # print(pred.shape,true.shape,"TRUTH")
+#         pred = model(h0=nodes, x=positions, edges=edges, edge_attr=edge_attr)
+        loss, pred_score = compute_loss(pred, true)
+        total_loss=total_loss+loss
         loss.backward()
-        # Parameters update after accumulating gradients for given num. batches.
-        if ((iter + 1) % batch_accumulation == 0) or (iter + 1 == len(loader)):
-            if cfg.optim.clip_grad_norm:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
-            optimizer.zero_grad()
-        logger.update_stats(true=_true,
-                            pred=_pred,
-                            loss=loss.detach().cpu().item(),
+        optimizer.step()
+        logger.update_stats(true=true.detach().cpu(),
+                            pred=pred_score.detach().cpu(), loss=loss.item(),
                             lr=scheduler.get_last_lr()[0],
                             time_used=time.time() - time_start,
-                            params=cfg.params,
-                            dataset_name=cfg.dataset.name)
+                            params=cfg.params)
         time_start = time.time()
+        # break
+    print("total_loss=",total_loss)
+    # scheduler.step()
 
 
 @torch.no_grad()
@@ -74,33 +136,43 @@ def eval_epoch(logger, loader, model, split='val'):
     time_start = time.time()
     for batch in loader:
         batch.split = split
+        extra=torch.zeros(batch["x"].shape[0],1)
+        batch["x"]=torch.cat([batch["x"],extra],1)
         batch.to(torch.device(cfg.device))
-        if cfg.gnn.head == 'inductive_edge':
-            pred, true, extra_stats = model(batch)
-        else:
-            pred, true = model(batch)
-            extra_stats = {}
-        if cfg.dataset.name == 'ogbg-code2':
-            loss, pred_score = subtoken_cross_entropy(pred, true)
-            _true = true
-            _pred = pred_score
-        else:
-            loss, pred_score = compute_loss(pred, true)
-            _true = true.detach().to('cpu', non_blocking=True)
-            _pred = pred_score.detach().to('cpu', non_blocking=True)
-        logger.update_stats(true=_true,
-                            pred=_pred,
-                            loss=loss.detach().cpu().item(),
+        
+
+        nodes = batch["x"][:,:].to(torch.device(cfg.device))
+        positions = batch["x"][:,12:].to(torch.device(cfg.device))
+        edges = batch["edge_index"].to(torch.device(cfg.device))
+        edge_attr = batch["edge_attr"].to(torch.device(cfg.device))
+        n_nodes = batch["x"].size(0)
+        n_edges = edges.size(1)
+        batch_size=nodes.shape[0]
+
+        true = batch["y"]
+        
+        graph_Z=Data(edge_index=edges, pos=positions,x=nodes,  y=true)
+        graph_Z.x=nodes
+        
+        batchz = torch.arange(0, 1)
+        graph_Z.batch = batchz.repeat_interleave(n_nodes).long()
+        transform = O3Transform(3)
+        
+        graph_Z = transform(graph_Z)
+        pred = model(graph_Z.to(torch.device(cfg.device)))
+        
+        loss, pred_score = compute_loss(pred, true)
+        logger.update_stats(true=true.detach().cpu(),
+                            pred=pred_score.detach().cpu(), loss=loss.item(),
                             lr=0, time_used=time.time() - time_start,
-                            params=cfg.params,
-                            dataset_name=cfg.dataset.name,
-                            **extra_stats)
+                            params=cfg.params)
         time_start = time.time()
+        # break
 
 
-def custom_train(loggers, loaders, model, optimizer, scheduler):
+def train(loggers, loaders, model, optimizer, scheduler):
     """
-    Customized training pipeline.
+    The core training pipeline
 
     Args:
         loggers: List of loggers
@@ -117,7 +189,7 @@ def custom_train(loggers, loaders, model, optimizer, scheduler):
         logging.info('Checkpoint found, Task already done')
     else:
         logging.info('Start from epoch {}'.format(start_epoch))
-
+    
     if cfg.wandb.use:
         try:
             import wandb
@@ -137,15 +209,16 @@ def custom_train(loggers, loaders, model, optimizer, scheduler):
     perf = [[] for _ in range(num_splits)]
     for cur_epoch in range(start_epoch, cfg.optim.max_epoch):
         start_time = time.perf_counter()
-        train_epoch(loggers[0], loaders[0], model, optimizer, scheduler,
-                    cfg.optim.batch_accumulation)
-        perf[0].append(loggers[0].write_epoch(cur_epoch))
+        train_epoch(loggers[0], loaders[0], model, optimizer, scheduler)
+        stats = loggers[0].write_epoch(cur_epoch)
+        perf[0].append(stats)
 
         if is_eval_epoch(cur_epoch):
             for i in range(1, num_splits):
                 eval_epoch(loggers[i], loaders[i], model,
                            split=split_names[i - 1])
-                perf[i].append(loggers[i].write_epoch(cur_epoch))
+                stats = loggers[i].write_epoch(cur_epoch)
+                perf[i].append(stats)
         else:
             for i in range(1, num_splits):
                 perf[i].append(perf[i][-1])
@@ -155,17 +228,17 @@ def custom_train(loggers, loaders, model, optimizer, scheduler):
             scheduler.step(val_perf[-1]['loss'])
         else:
             scheduler.step()
+        
         full_epoch_times.append(time.perf_counter() - start_time)
         if is_ckpt_epoch(cur_epoch) or True: # saves for every epoch
             save_ckpt(model, optimizer, scheduler, cur_epoch)
-
+        
         if cfg.wandb.use:
             run.log(flatten_dict(perf), step=cur_epoch)
-
-        # Log current best stats on eval epoch.
+        
+                # Log current best stats on eval epoch.
         if is_eval_epoch(cur_epoch):
             best_epoch = np.array([vp['loss'] for vp in val_perf]).argmin()
-            
             best_train = best_val = best_test = ""
             if cfg.metric_best != 'auto':
                 # Select again based on val perf of `cfg.metric_best`.
@@ -206,24 +279,17 @@ def custom_train(loggers, loaders, model, optimizer, scheduler):
                 f"val_loss: {perf[1][best_epoch]['loss']:.4f} {best_val}\t"
                 f"test_loss: {perf[2][best_epoch]['loss']:.4f} {best_test}"
             )
-            if hasattr(model, 'trf_layers'):
-                # Log SAN's gamma parameter values if they are trainable.
-                for li, gtl in enumerate(model.trf_layers):
-                    if torch.is_tensor(gtl.attention.gamma) and \
-                            gtl.attention.gamma.requires_grad:
-                        logging.info(f"    {gtl.__class__.__name__} {li}: "
-                                     f"gamma={gtl.attention.gamma.item()}")
+        
     logging.info(f"Avg time per epoch: {np.mean(full_epoch_times):.2f}s")
-    logging.info(f"Total train loop time: {np.sum(full_epoch_times) / 3600:.2f}h")
+    logging.info(f"Total train loop time: {np.sum(full_epoch_times) / 3600:.2f}h")  
+
     for logger in loggers:
         logger.close()
     if cfg.train.ckpt_clean and False:
         clean_ckpt()
-    # close wandb
+    
     if cfg.wandb.use:
         run.finish()
         run = None
 
     logging.info('Task done, results saved in {}'.format(cfg.run_dir))
-
-register_train('custom', custom_train)

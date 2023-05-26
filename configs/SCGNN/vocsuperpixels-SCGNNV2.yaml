@@ -16,11 +16,13 @@ dataset:
   edge_encoder: False
 train:
   mode: custom
+  finetune: 
+  # /home/lcur1701/LRGB_KAI/results/vocsuperpixels-GCN
   batch_size: 32   
   eval_period: 1
   ckpt_period: 100
 model:
-  type: gnn
+  type: scgnn
   loss_fun: weighted_cross_entropy
 gnn:
   head: inductive_node
@@ -39,7 +41,7 @@ optim:
   optimizer: adamW
   weight_decay: 0.0
   base_lr: 0.0005
-  max_epoch: 1000
+  max_epoch: 500
   scheduler: cos
   reduce_factor: 0.5
   schedule_patience: 10

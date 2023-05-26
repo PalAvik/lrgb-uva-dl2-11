@@ -13,9 +13,8 @@ from torch_geometric.graphgym.loader import create_loader
 from torch_geometric.graphgym.logger import set_printing
 from torch_geometric.graphgym.optimizer import create_optimizer, \
     create_scheduler, OptimizerConfig, SchedulerConfig
-# from torch_geometric.graphgym.model_builder import create_model
-# from torch_geometric.graphgym.train import train
-# from graphgps.train import custom_train
+from torch_geometric.graphgym.model_builder import create_model
+from torch_geometric.graphgym.train import train
 from torch_geometric.graphgym.utils.agg_runs import agg_runs
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric.graphgym.utils.device import auto_select_device
@@ -25,11 +24,9 @@ from torch_geometric import seed_everything
 from graphgps.finetuning import load_pretrained_model_cfg, \
     init_model_from_pretrained
 from graphgps.logger import create_logger
-# from graphgps.custom.train_newschedule import train
-from graphgps.custom import custom_train3
-from segnn import SEGNN
-from e3nn.o3 import Irreps, spherical_harmonics
-from balanced_irreps import BalancedIrreps, WeightBalancedIrreps
+from graphgps.custom.egnn import custom_egnn
+
+
 def new_optimizer_config(cfg):
     return OptimizerConfig(optimizer=cfg.optim.optimizer,
                            base_lr=cfg.optim.base_lr,
@@ -107,44 +104,6 @@ def run_loop_settings():
         run_ids = split_indices
     return run_ids, seeds, split_indices
 
-def create_model():
-    
-    
-    task = "node"
-    hidden_features=128
-    lmax_h=2
-    lmax_attr=3
-    norm='instance'
-    pool='avg'
-    layers=4
-    input_irreps = Irreps("12x0e+1x1o")
-    output_irreps = Irreps("21x0e")
-    edge_attr_irreps = Irreps.spherical_harmonics(lmax_attr)
-    node_attr_irreps = Irreps.spherical_harmonics(lmax_attr)
-    subspace_type="weightbalanced"
-    if subspace_type == "weightbalanced":
-        hidden_irreps = WeightBalancedIrreps(
-            Irreps("{}x0e".format(hidden_features)), node_attr_irreps, sh=True, lmax=lmax_h)
-    elif subspace_type == "balanced":
-        hidden_irreps = BalancedIrreps(lmax_h,hidden_features, True)
-    else:
-        raise Exception("Subspace type not found")
-    additional_message_irreps = None#Irreps("2x0e")
-
-    model = SEGNN(input_irreps,
-                  hidden_irreps,
-                  output_irreps,
-                  edge_attr_irreps,
-                  node_attr_irreps,
-                  num_layers=layers,
-                  norm=norm,
-                  pool=pool,
-                  task=task,
-                  additional_message_irreps=additional_message_irreps).to(torch.device(cfg.device))
-    return(model)
-
-
-
 
 if __name__ == '__main__':
     # Load cmd line args
@@ -166,41 +125,43 @@ if __name__ == '__main__':
         cfg.run_id = run_id
         seed_everything(cfg.seed)
         auto_select_device()
-        if cfg.train.finetune:
-            cfg = load_pretrained_model_cfg(cfg)
+        #     if cfg.train.finetune: [TODO LATER]
+        #         cfg = load_pretrained_model_cfg(cfg)
         logging.info(f"[*] Run ID {run_id}: seed={cfg.seed}, "
-                     f"split_index={cfg.dataset.split_index}")
+                  f"split_index={cfg.dataset.split_index}")
         logging.info(f"    Starting now: {datetime.datetime.now()}")
-        # Set machine learning pipeline
+        
         loaders = create_loader()
         loggers = create_logger()
-        model = create_model()
-        # print(model)
-#         break
-        if cfg.train.finetune: 
-            model = init_model_from_pretrained(model, cfg.train.finetune,
-                                               cfg.train.freeze_pretrained)
-        optimizer = create_optimizer(model.parameters(),
-                                     new_optimizer_config(cfg))
+         
+        if cfg.model.type == 'egnn':
+            model = custom_egnn.EGNN2(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,device=cfg.device)
+            from graphgps.custom import custom_train2 as custom_train
+        elif cfg.model.type == 'enn':
+            model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,device=cfg.device)
+            from graphgps.custom import custom_train
+            
+        optimizer = create_optimizer(model.parameters(), new_optimizer_config(cfg))
         scheduler = create_scheduler(optimizer, new_scheduler_config(cfg))
+        
         # Print model info
         logging.info(model)
         logging.info(cfg)
         cfg.params = params_count(model)
         logging.info('Num parameters: {}'.format(cfg.params))
-        # print("heeeeeelp")
-#         
+        
         # Start training
-#         if cfg.train.mode == 'standard':
-#             if cfg.wandb.use:
-#                 logging.warning("[W] WandB logging is not supported with the "
-#                                 "default train.mode, set it to `custom`")
-            # train(loggers, loaders, model, optimizer, scheduler)
-        custom_train3.train(loggers, loaders, model, optimizer, scheduler)
-#         else:
-#             print("wrong")
-#             train_dict[cfg.train.mode](loggers, loaders, model, optimizer,
-#                                        scheduler)
+        if cfg.train.mode == 'standard':
+            print("std mode")
+        if cfg.wandb.use:
+            logging.warning("[W] WandB logging is not supported with the "
+                            "default train.mode, set it to `custom`")
+        custom_train.train(loggers, loaders, model, optimizer, scheduler)
+        #         train(loggers, loaders, model, optimizer, scheduler)
+        else:
+            print("coming here",cfg.train.mode)
+            custom_train.train(loggers, loaders, model, optimizer, scheduler)
+
     # Aggregate results from different seeds
     agg_runs(cfg.out_dir, cfg.metric_best)
     # When being launched in batch mode, mark a yaml as done

@@ -2,12 +2,12 @@ out_dir: results
 metric_best: f1
 wandb:
   use: True
-  project: Pascal
+  project: gtblueprint
 dataset:
-  format: PyG-VOCSuperpixels
-  name: edge_wt_only_coord  # Alternative: edge_wt_region_boundary
+  format: PyG-COCOSuperpixels
+  name: edge_wt_only_coord
   slic_compactness: 10
-  task: graph  # Even if VOC is node-level task, this needs to be set as 'graph'
+  task: graph  # Even if COCO is node-level task, this needs to be set as 'graph'
   task_type: classification
   transductive: False
   node_encoder: True
@@ -20,7 +20,7 @@ train:
   eval_period: 1
   ckpt_period: 100
 model:
-  type: gnn
+  type: scgnn
   loss_fun: weighted_cross_entropy
 gnn:
   head: inductive_node
@@ -39,7 +39,7 @@ optim:
   optimizer: adamW
   weight_decay: 0.0
   base_lr: 0.0005
-  max_epoch: 1000
+  max_epoch: 200
   scheduler: cos
   reduce_factor: 0.5
   schedule_patience: 10

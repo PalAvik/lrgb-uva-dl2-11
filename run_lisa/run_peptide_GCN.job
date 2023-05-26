@@ -1,0 +1,21 @@
+#!/bin/bash
+
+#SBATCH --gres=gpu:0
+#SBATCH --job-name=RunJob
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=3
+#SBATCH --time=04:00:00
+#SBATCH --mem=32000M
+#SBATCH --output=slurm_output_%A.out
+
+module purge
+module load 2021
+module load Anaconda3/2021.05
+
+# Your job starts in the directory where you call sbatch
+cd $HOME/lrgb_madhura/lrgb-uva-dl2-11
+# Activate your environment
+source activate lrgb2
+
+# Run your code
+srun python main.py --cfg configs/GCN/peptides-func-GCN.yaml  wandb.use False
