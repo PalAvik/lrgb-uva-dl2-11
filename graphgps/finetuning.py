@@ -97,7 +97,7 @@ def load_pretrained_model_cfg(cfg):
     return cfg
 
 
-def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False, device='cuda'):
+def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False):
     """ Copy model parameters from pretrained model except the prediction head.
 
     Args:
@@ -112,7 +112,7 @@ def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False, d
     ckpt_file = get_final_pretrained_ckpt(osp.join(pretrained_dir, '0', 'ckpt'))
     logging.info(f"[*] Loading from pretrained model: {ckpt_file}")
 
-    ckpt = torch.load(ckpt_file, map_location=device)
+    ckpt = torch.load(ckpt_file)
     pretrained_dict = ckpt['model_state']
     model_dict = model.state_dict()
 
