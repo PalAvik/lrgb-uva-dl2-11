@@ -13,6 +13,7 @@ python model_inference.py --cfg configs/GCN/vocsuperpixels-GCN.yaml device cpu
 """
 
 import os
+import argparse
 
 import pandas as pd
 import torch
@@ -40,8 +41,8 @@ from tqdm import tqdm
 import pickle
 from analysis.noising_experiments.noise_utils import get_predictions
 
-from analysis.noising_experiments.noiser import NoiserHelper, OneGraphNoise
-
+from graphgps.transform.posenc_stats import compute_posenc_stats
+from analysis.noising_experiments.noiser import OneGraphNoise, NoiserHelper
 
 
 def custom_set_out_dir(cfg, cfg_fname, name_tag):
@@ -64,11 +65,33 @@ def dump_pkl(content, file_name):
     pickle.dump(content, file)
     file.close()
 
+def noiser_parse_arg() -> argparse.Namespace:
+    r"""Parses the command line arguments."""
+    parser = argparse.ArgumentParser(description='GraphGym')
+
+    parser.add_argument('--cfg', dest='cfg_file', type=str, required=True,
+                        help='The configuration file path.')
+    parser.add_argument('--repeat', type=int, default=1,
+                        help='The number of repeated jobs.')
+    parser.add_argument('--mark_done', action='store_true',
+                        help='Mark yaml as done after a job has finished.')
+    parser.add_argument('--device', type=str, default='cpu', help='torch device')
+    parser.add_argument('--num_graphs', type=int, default=1)
+    parser.add_argument('--output_file', type=str, required=True)
+
+    ### What is the point of this??
+    parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
+                        help='See graphgym/config.py for remaining options.')
+
+
+    return parser.parse_args()
+
+
 
 
 if __name__ == '__main__':
     # Load cmd line args
-    args = parse_args()
+    args = noiser_parse_arg()
     # Load config file
     set_cfg(cfg)
     load_cfg(cfg, args)
@@ -76,6 +99,9 @@ if __name__ == '__main__':
     dump_cfg(cfg)
     # Set Pytorch environment
     torch.set_num_threads(cfg.num_threads)
+
+    cfg.device = args.device
+
     print('Loading Model')
     assert cfg.train.finetune
 
@@ -85,16 +111,26 @@ if __name__ == '__main__':
     file_name = f"noising_exp_{cfg.model.type}.pkl"
     if cfg.model.type == 'egnn':
         model = custom_egnn.EGNN2(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,
-                                  device=cfg.device)
+                                  device=args.device)
+        is_graphgym = False
     elif cfg.model.type == 'enn':
         model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,
-                                 device=cfg.device)
+                                 device=args.device)
+        is_graphgym = False
+
     else:
         model = create_model()
-    
-    model = init_model_from_pretrained(model, cfg.train.finetune,  cfg.train.freeze_pretrained) 
-    
-    print(model)
+        is_graphgym = True
+
+    model = init_model_from_pretrained(model,
+                                        cfg.train.finetune,
+                                        cfg.train.freeze_pretrained,
+                                        device=args.device
+                                       )
+
+    model.eval()
+
+    entries = []
     dataset = VOCSuperpixels(root='datasets/VOCSuperpixels',
                              slic_compactness=10,
                              name='edge_wt_only_coord',
@@ -102,36 +138,47 @@ if __name__ == '__main__':
 
     print('Dataset loaded')
 
-    N = 20
-    helper = NoiserHelper(dataset)
-    results_per_graph = []
-    for graph_id in range(N):
-        data = dataset[graph_id]
-        data = data.to(torch.device(cfg.device))
-        data = dataset[graph_id]
-        noiser = OneGraphNoise(data, model)
-        result_new = noiser.get_results_for_all_target_nodes(replacement_value=helper.mean_of_means)
-        
-        predictions = get_predictions(data, model)
+    with torch.no_grad():
+        results_per_graph = []
+        helper = NoiserHelper(dataset)
+
+        for graph_id in range(args.num_graphs):
+
+            data = dataset[graph_id]
+            if cfg.posenc_LapPE.enable == True:
+                data = compute_posenc_stats(data,
+                                             ['LapPE'],
+                                             is_undirected=True,
+                                             cfg=cfg)
+                uses_pe = True
 
 
-        out_frames = []
-        for target_node in range(result_new.shape[0]):
-            row = {'graph_id': [graph_id],
-                    'target_node': [target_node],
-                    'truth': [data.y[target_node].item()],
-                    'standard_prediction': [predictions[target_node].item()]
-                    }
-            for path_length in range(result_new.shape[1]):
-                row[f"path_length_{path_length}_prediction"] = [result_new[target_node, path_length]]
-            row = pd.DataFrame.from_dict(row)
-            out_frames.append(row)
-        df = pd.concat(out_frames)
-        print(results_per_graph)
-        results_per_graph.append(df)
-    
-    dump_pkl(results_per_graph, file_name=file_name)
-    print("Content dumped in pkl file: ", file_name)
+
+            noiser = OneGraphNoise(data, model)
+
+            result_new = noiser.get_results_for_all_target_nodes(replacement_value=helper.mean_of_means)
+
+            ## Get result for vanilla model (i.e. not fudged)
+            logits, target = model(data)
+            predictions = logits.argmax(dim=1)
+
+            # Write all data for this graph
+            out_frames = []
+            for target_node in range(result_new.shape[0]):
+                row = {'graph_id': [graph_id],
+                       'target_node': [target_node],
+                       'truth': [data.y[target_node].item()],
+                       'standard_prediction': [predictions[target_node].item()]
+                       }
+                for path_length in range(result_new.shape[1]):
+                    row[f"path_length_{path_length}_prediction"] = [result_new[target_node, path_length]]
+                row = pd.DataFrame.from_dict(row)
+                out_frames.append(row)
+            df = pd.concat(out_frames)
+            results_per_graph.append(df)
+
+        final = pd.concat(results_per_graph)
+        final.to_pickle(args.output_file)
 
 
 
