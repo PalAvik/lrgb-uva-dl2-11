@@ -43,9 +43,9 @@ from graphgps.jacobian.graphutils import get_adj_matrix  # use this @Avik
 from graphgps.transform.posenc_stats import compute_posenc_stats
 import pickle
 from tqdm import tqdm
-from segnn import SEGNN
+from graphgps.custom.segnn.segnn import SEGNN
 from e3nn.o3 import Irreps, spherical_harmonics
-from balanced_irreps import BalancedIrreps, WeightBalancedIrreps
+from graphgps.custom.segnn.balanced_irreps import BalancedIrreps, WeightBalancedIrreps
 from graphgps.custom.custom_train3 import O3Transform
 from torch_geometric.data import Data
 

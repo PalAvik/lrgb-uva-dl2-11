@@ -27,9 +27,9 @@ from graphgps.finetuning import load_pretrained_model_cfg, \
 from graphgps.logger import create_logger
 # from graphgps.custom.train_newschedule import train
 from graphgps.custom import custom_train3
-from graphgps.custom.segnn import SEGNN
+from graphgps.custom.segnn.segnn import SEGNN
 from e3nn.o3 import Irreps, spherical_harmonics
-from graphgps.custom.balanced_irreps import BalancedIrreps, WeightBalancedIrreps
+from graphgps.custom.segnn.balanced_irreps import BalancedIrreps, WeightBalancedIrreps
 def new_optimizer_config(cfg):
     return OptimizerConfig(optimizer=cfg.optim.optimizer,
                            base_lr=cfg.optim.base_lr,
