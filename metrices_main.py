@@ -82,9 +82,12 @@ if __name__ == '__main__':
         if cfg.train.finetune:    
             if cfg.model.type == 'enn':
                 model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,device=cfg.device) 
+            elif cfg.model.type == "egnn":
+                model = custom_egnn.EGNN2(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,device=cfg.device)
             else:
                 model = create_model()
-                model = init_model_from_pretrained(model, cfg.train.finetune,  cfg.train.freeze_pretrained)   
+            
+            model = init_model_from_pretrained(model, cfg.train.finetune,  cfg.train.freeze_pretrained)   
             
             print(model)      
                                    
@@ -93,19 +96,24 @@ if __name__ == '__main__':
                 # if j == 25: break
                 start_idx = 0 
                 batch = batch.to(torch.device(cfg.device))
-                if cfg.model.type == 'enn':
+                if cfg.model.type in ['enn', 'egnn']:
                     nodes = batch["x"][:,:12].to(torch.device(cfg.device))
                     positions = batch["x"][:,12:].to(torch.device(cfg.device))
                     edges = batch["edge_index"].to(torch.device(cfg.device))
                     edge_attr = batch["edge_attr"].to(torch.device(cfg.device))
                     true = batch["y"]
-                    pred = model(h0=nodes, x=positions, edges=edges, edge_attr=edge_attr)
+                    if cfg.model.type == "enn":
+                       pred = model(h0=nodes, x=positions, edges=edges, edge_attr=edge_attr)
+                    else:
+                        n_nodes_arr = [batch[g_idx].x.size(0) for g_idx in range(batch.num_graphs)]
+                        tensor_n_nodes = torch.tensor(n_nodes_arr)
+                        tensor_n_nodes_interleaved = tensor_n_nodes.repeat_interleave(tensor_n_nodes).unsqueeze(1).to(torch.device(cfg.device))
+                        pred = model(h0=nodes, x=positions, edges=edges, edge_attr=edge_attr, x_weights=tensor_n_nodes_interleaved)
                 else:
                     pred, true = model(batch)
 
                 _ , pred_score = compute_loss(pred, true)
                 pred_int = pred_score.max(dim=1)[1]
-                
                 for i in range(batch.num_graphs):
                      graph = batch[i]
                      n_nodes = graph.x.size(0)

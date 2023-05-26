@@ -3,7 +3,6 @@ import logging
 import torch
 from torch_geometric.utils import remove_self_loops
 from torch_scatter import scatter
-
 from yacs.config import CfgNode
 
 

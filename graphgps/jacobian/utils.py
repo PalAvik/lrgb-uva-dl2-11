@@ -147,7 +147,7 @@ def _grad_postprocess(inputs, create_graph):
         return tuple(_grad_postprocess(inp, create_graph) for inp in inputs)
 
 
-def jacobian_graph(func, inputs, create_graph=False, strict=False, is_graphgym=False, uses_pe=False):
+def jacobian_graph(func, inputs, create_graph=False, strict=False, is_graphgym=False, uses_pe=False,is_steer=False):
     r"""Function that computes the Jacobian of a given function.
 
     Args:
@@ -199,6 +199,15 @@ def jacobian_graph(func, inputs, create_graph=False, strict=False, is_graphgym=F
                         edge_attr=inputs[2],
                     )
                 outputs = (func(input_gdata)[0])
+
+        elif is_steer:
+            input_gdata=Data(x=inputs[0],edge_index=inputs[2].long(), pos=inputs[1],node_attr=inputs[3],edge_attr=inputs[4])
+            batchz = torch.arange(0, 1)
+            input_gdata.batch = batchz.repeat_interleave(inputs[0].shape[0]).long()
+
+            # print("hello",func(input_gdata)[0])
+            outputs = (func(input_gdata)[0])
+
         else:
             outputs = func(*inputs)
         

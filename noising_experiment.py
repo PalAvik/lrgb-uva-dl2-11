@@ -17,9 +17,13 @@ import argparse
 
 import pandas as pd
 import torch
-
 import graphgps  # noqa, register custom modules
 
+import torch_geometric as tg
+import networkx as nx
+import numpy as np
+import pandas as pd
+from functools import cached_property
 from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric.graphgym.config import (cfg, dump_cfg,
                                              set_cfg, load_cfg,
@@ -27,14 +31,15 @@ from torch_geometric.graphgym.config import (cfg, dump_cfg,
 from torch_geometric.graphgym.loader import create_loader
 
 from torch_geometric.graphgym.model_builder import create_model
-
+from torch_geometric.graphgym.loss import compute_loss
 from graphgps.finetuning import load_pretrained_model_cfg, \
     init_model_from_pretrained
 from graphgps.logger import create_logger
 from graphgps.custom.egnn import custom_egnn
 from graphgps.loader.dataset.voc_superpixels import VOCSuperpixels
-
+from tqdm import tqdm
 import pickle
+from analysis.noising_experiments.noise_utils import get_predictions
 
 from graphgps.transform.posenc_stats import compute_posenc_stats
 from analysis.noising_experiments.noiser import OneGraphNoise, NoiserHelper
@@ -83,6 +88,7 @@ def noiser_parse_arg() -> argparse.Namespace:
 
 
 
+
 if __name__ == '__main__':
     # Load cmd line args
     args = noiser_parse_arg()
@@ -95,13 +101,14 @@ if __name__ == '__main__':
     torch.set_num_threads(cfg.num_threads)
 
     cfg.device = args.device
+
     print('Loading Model')
     assert cfg.train.finetune
 
     cfg = load_pretrained_model_cfg(cfg)
     loggers = create_logger()
     loaders = create_loader()
-
+    file_name = f"noising_exp_{cfg.model.type}.pkl"
     if cfg.model.type == 'egnn':
         model = custom_egnn.EGNN2(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,
                                   device=args.device)
@@ -130,7 +137,6 @@ if __name__ == '__main__':
                              split='test')
 
     print('Dataset loaded')
-
 
     with torch.no_grad():
         results_per_graph = []
@@ -173,7 +179,6 @@ if __name__ == '__main__':
 
         final = pd.concat(results_per_graph)
         final.to_pickle(args.output_file)
-
 
 
 

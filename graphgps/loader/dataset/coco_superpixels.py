@@ -2,12 +2,12 @@ import os
 import os.path as osp
 import shutil
 import pickle
-
+import numpy as np
 import torch
 from tqdm import tqdm
 from torch_geometric.data import (InMemoryDataset, Data, download_url,
                                   extract_zip)
-
+from sklearn.model_selection import train_test_split
 
 class COCOSuperpixels(InMemoryDataset):
     r"""The COCOSuperpixels dataset which contains image superpixels and a semantic segmentation label
@@ -144,6 +144,15 @@ class COCOSuperpixels(InMemoryDataset):
                 graphs = pickle.load(f)
             
             indices = range(len(graphs))
+            print("Initial size:", len(indices))
+            # small_size = int(0.3*len(indices))
+            # indices =indices[:small_size]
+            # y = np.array([_[3] for _ in graphs])
+            # # print(y)
+            # # train_indices, _ = train_test_split(indices, test_size=0.7, stratify=y)
+            # indices = train_indices
+ 
+                
 
             pbar = tqdm(total=len(indices))
             pbar.set_description(f'Processing {split} dataset')
@@ -171,17 +180,22 @@ class COCOSuperpixels(InMemoryDataset):
 
                 data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr,
                             y=y)
-
+                 
                 if self.pre_filter is not None and not self.pre_filter(data):
                     continue
 
                 if self.pre_transform is not None:
                     data = self.pre_transform(data)
-
-                data_list.append(data)
+                
+                y_list = y.tolist()
+                condn = [_ for _ in y_list if 0 <= _ <= 20]
+                if y.size(0) == len(condn):
+                    #  print("the graph will get appended")
+                     data_list.append(data)
                 pbar.update(1)
 
             pbar.close()
-
+            
+            print("Size of datalist: ", len(data_list))
             torch.save(self.collate(data_list),
                        osp.join(self.processed_dir, f'{split}.pt'))

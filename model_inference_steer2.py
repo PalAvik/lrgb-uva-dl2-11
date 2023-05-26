@@ -43,7 +43,11 @@ from graphgps.jacobian.graphutils import get_adj_matrix  # use this @Avik
 from graphgps.transform.posenc_stats import compute_posenc_stats
 import pickle
 from tqdm import tqdm
-
+from graphgps.custom.segnn.segnn import SEGNN
+from e3nn.o3 import Irreps, spherical_harmonics
+from graphgps.custom.segnn.balanced_irreps import BalancedIrreps, WeightBalancedIrreps
+from graphgps.custom.custom_train3 import O3Transform
+from torch_geometric.data import Data
 
 def custom_set_out_dir(cfg, cfg_fname, name_tag):
     """Set custom main output directory path to cfg.
@@ -102,7 +106,7 @@ if __name__ == '__main__':
         cfg = load_pretrained_model_cfg(cfg)
         loggers = create_logger()
         loaders = create_loader()
-
+        is_steer = False
         if cfg.model.type == 'egnn':
             model = custom_egnn.EGNN2(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,
                                       device=cfg.device)
@@ -111,6 +115,34 @@ if __name__ == '__main__':
             model = custom_egnn.EGNN(in_node_nf=12, in_edge_nf=0, hidden_nf=128, n_layers=4, coords_weight=1.0,
                                      device=cfg.device)
             is_graphgym = False
+        elif cfg.model.type == 'scgnn':
+
+
+            task = "node"
+            hidden_features=128
+            lmax_h=2
+            lmax_attr=3
+            norm='instance'
+            pool='avg'
+            layers=4
+            input_irreps = Irreps("12x0e+1x1o")
+            output_irreps = Irreps("21x0e")
+            edge_attr_irreps = Irreps.spherical_harmonics(lmax_attr)
+            node_attr_irreps = Irreps.spherical_harmonics(lmax_attr)
+            subspace_type="weightbalanced"
+            if subspace_type == "weightbalanced":
+                hidden_irreps = WeightBalancedIrreps(
+                    Irreps("{}x0e".format(hidden_features)), node_attr_irreps, sh=True, lmax=lmax_h)
+            elif subspace_type == "balanced":
+                hidden_irreps = BalancedIrreps(lmax_h,hidden_features, True)
+            else:
+                raise Exception("Subspace type not found")
+            additional_message_irreps = None#Irreps("2x0e")
+
+
+            model = SEGNN(input_irreps,hidden_irreps,output_irreps,edge_attr_irreps,node_attr_irreps,num_layers=layers,norm=norm,pool=pool,
+                  task=task,additional_message_irreps=additional_message_irreps).to(torch.device(cfg.device))
+            is_graphgym = False            
         else:
             model = create_model()
             is_graphgym = True
@@ -142,10 +174,20 @@ if __name__ == '__main__':
 
                     if cfg.model.type in ['enn', 'egnn']:
                         nodes = graph.x[:, :12].to(torch.device(cfg.device))
+                    elif cfg.model.type in ['scgnn']:
+                        nodes_d = graph.x.to(torch.device(cfg.device))
+                        extra=torch.zeros(nodes_d.shape[0],1)
+                        nodes=torch.cat([nodes_d,extra],1)
+
                     else:
                         nodes = graph.x.to(torch.device(cfg.device))
 
-                    positions = graph.x[:, 12:].to(torch.device(cfg.device))
+                    if cfg.model.type in ['scgnn']:
+                        positions=nodes[:,12:].to(torch.device(cfg.device))
+                    else:
+                        positions = graph.x[:, 12:].to(torch.device(cfg.device))
+
+
                     edges = graph.edge_index.to(torch.device(cfg.device))
                     edge_attr = graph.edge_attr.to(torch.device(cfg.device))
 
@@ -166,12 +208,28 @@ if __name__ == '__main__':
                         EigVals = graph.EigVals.to(torch.device(cfg.device))
                         EigVecs = graph.EigVecs.to(torch.device(cfg.device))
                         input_ = (nodes, edges, edge_attr, EigVals, EigVecs)
+
+                    elif cfg.model.type=='scgnn':
+                        transform = O3Transform(3)
+                        graph_Z=Data(x=nodes,edge_index=edges, pos=positions)
+                        batchz = torch.arange(0, 1)
+                        n_nodes=nodes.shape[0]
+                        graph_Z.batch = batchz.repeat_interleave(n_nodes).long()
+                        
+                        transform = O3Transform(3)
+                        graph_Z = transform(graph_Z)
+
+                        input_ = (graph_Z.x, graph_Z.pos, graph_Z.edge_index,graph_Z.node_attr,graph_Z.edge_attr) 
+
+                        
+
+                        is_steer=True
                     else:
                         input_ = (nodes, edges, edge_attr)
 
                     #                 print("~~~~~~~~~Computing Jacobian~~~~~~~~~~~~")
 
-                    node_jacobian = jacobian_graph(model, input_, is_graphgym=is_graphgym, uses_pe=uses_pe)[0]
+                    node_jacobian = jacobian_graph(model, input_, is_graphgym=is_graphgym, uses_pe=uses_pe,is_steer=is_steer)[0]
                     adj_mat = get_adj_matrix(edges.cpu()).to(torch.device(cfg.device))
                     influence_score, distances = get_influence_score(node_jacobian, adj_mat, positions)
 
