@@ -211,7 +211,7 @@ def jacobian_graph(func, inputs, create_graph=False, strict=False, is_graphgym=F
             # input_gdata.batch = batchz.repeat_interleave(inputs[0].shape[0]).long()
 
             # print("hello",func(input_gdata)[0])
-            outputs = (func(input_gdata)[0])
+            outputs = func(input_gdata)
 
         else:
             outputs = func(*inputs)

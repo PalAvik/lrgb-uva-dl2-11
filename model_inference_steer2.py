@@ -68,8 +68,7 @@ def get_influence_score(node_jacobian, adj_mat, positions):
     total_nodes = node_jacobian.size(0)
     inf_score = torch.zeros((total_nodes, total_nodes))
     distances = torch.zeros((total_nodes, total_nodes))
-
-    print("NODE JACOBIAN SIZE: ", node_jacobian.size())
+    
     node_jacobian = node_jacobian.sum((1, 3))
     node_jacobian = node_jacobian @ adj_mat
 
