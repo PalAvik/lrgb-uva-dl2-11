@@ -68,7 +68,7 @@ def get_influence_score(node_jacobian, adj_mat, positions):
     total_nodes = node_jacobian.size(0)
     inf_score = torch.zeros((total_nodes, total_nodes))
     distances = torch.zeros((total_nodes, total_nodes))
-    
+
     node_jacobian = node_jacobian.sum((1, 3))
     node_jacobian = node_jacobian @ adj_mat
 
@@ -140,8 +140,19 @@ if __name__ == '__main__':
             additional_message_irreps = None#Irreps("2x0e")
 
 
-            model = SEGNN(input_irreps,hidden_irreps,output_irreps,edge_attr_irreps,node_attr_irreps,num_layers=layers,norm=norm,pool=pool,
-                  task=task,additional_message_irreps=additional_message_irreps).to(torch.device(cfg.device))
+            model = SEGNN(
+                input_irreps,
+                hidden_irreps,
+                output_irreps,
+                edge_attr_irreps,
+                node_attr_irreps,
+                num_layers=layers,
+                norm=norm,
+                pool=pool,
+                task=task,
+                additional_message_irreps=additional_message_irreps,
+                computing_jacobian=True,
+                ).to(torch.device(cfg.device))
             is_graphgym = False            
         else:
             model = create_model()
@@ -153,10 +164,10 @@ if __name__ == '__main__':
         model.eval()
 
         entries = []
-        file_name = f"inf_scores_{cfg.model.type}.pkl"
+        file_name = f"inf_scores_{cfg.model.type}_coco.pkl"
 
-        no_batches = 2
-        data_path_dir = './datasets/VOCSuperpixels/small_test_set'
+        no_batches = 1
+        data_path_dir = './datasets/COCOSuperpixels/small_test_set'
         uses_pe = False
 
         with torch.no_grad():

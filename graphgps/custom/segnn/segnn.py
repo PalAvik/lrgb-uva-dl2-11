@@ -24,9 +24,11 @@ class SEGNN(nn.Module):
         pool="avg",
         task="graph",
         additional_message_irreps=None,
+        computing_jacobian=False,
     ):
         super().__init__()
         self.task = task
+        self.computing_jacobian = computing_jacobian
         # Create network, embedding first
         # self.embedding_layer_1 = O3TensorProductSwishGate(
         #     input_irreps, hidden_irreps, node_attr_irreps
@@ -86,18 +88,20 @@ class SEGNN(nn.Module):
 
     def catch_isolated_nodes(self, graph):
         """Isolated nodes should also obtain attributes"""
-        return #important CHANGE KAISER /delete this to go back
-        if (
-            graph.contains_isolated_nodes()
-            and graph.edge_index.max().item() + 1 != graph.num_nodes
-        ):
-            nr_add_attr = graph.num_nodes - (graph.edge_index.max().item() + 1)
-            add_attr = graph.node_attr.new_tensor(
-                np.zeros((nr_add_attr, node_attr.shape[-1]))
-            )
-            graph.node_attr = torch.cat((graph.node_attr, add_attr), -2)
-        # Trivial irrep value should always be 1 (is automatically so for connected nodes, but isolated nodes are now 0)
-        graph.node_attr[:, 0] = 1.0
+        if self.computing_jacobian:
+            return #important CHANGE KAISER /delete this to go back
+        else:
+            if (
+                graph.contains_isolated_nodes()
+                and graph.edge_index.max().item() + 1 != graph.num_nodes
+            ):
+                nr_add_attr = graph.num_nodes - (graph.edge_index.max().item() + 1)
+                add_attr = graph.node_attr.new_tensor(
+                    np.zeros((nr_add_attr, node_attr.shape[-1]))
+                )
+                graph.node_attr = torch.cat((graph.node_attr, add_attr), -2)
+            # Trivial irrep value should always be 1 (is automatically so for connected nodes, but isolated nodes are now 0)
+            graph.node_attr[:, 0] = 1.0
 
     def forward(self, graph):
         """SEGNN forward pass"""
